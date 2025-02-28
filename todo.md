@@ -28,22 +28,22 @@ This checklist provides a thorough step-by-step guide for developing the Vendor 
 
 ## Iteration 2: Backend Core Infrastructure – Database and Authentication
 - [ ] **Database Integration:**
-  - [ ] Set up a local PostgreSQL database.
-  - [ ] Install and configure Knex.js.
-  - [ ] Create migration scripts for:
-    - [ ] **Users Table:**  
+  - [x] Set up a local PostgreSQL database.
+  - [x] Install and configure Knex.js.
+  - [x] Create migration scripts for:
+    - [x] **Users Table:**  
       - Columns: `id` (UUID, primary key), `email`, `password`, `role` (enum: 'admin' or 'vendor').
-    - [ ] **Vendors Table:**  
+    - [x] **Vendors Table:**  
       - Columns: `id` (UUID, primary key), `name`, `contact_email`, `status` (enum: 'Compliant' or 'Non-Compliant').
-    - [ ] **Documents Table:**  
+    - [x] **Documents Table:**  
       - Columns: `id` (UUID, primary key), `vendor_id` (foreign key), `type`, `file_url`, `uploaded_at` (timestamp), `expires_at` (date).
 
 - [ ] **Authentication Endpoints:**
-  - [ ] Implement user registration endpoint.
-  - [ ] Implement user login endpoint:
-    - [ ] Use JWT to generate a token on successful login.
-  - [ ] Create JWT authentication middleware.
-  - [ ] Integrate the middleware into at least one protected test route.
+  - [x] Implement user registration endpoint.
+  - [x] Implement user login endpoint:
+    - [x] Use JWT to generate a token on successful login.
+  - [x] Create JWT authentication middleware.
+  - [x] Integrate the middleware into at least one protected test route.
 
 - [ ] **Testing & Documentation:**
   - [ ] Write basic tests to verify database connectivity and authentication.

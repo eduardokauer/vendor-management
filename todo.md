@@ -38,15 +38,15 @@ This checklist provides a thorough step-by-step guide for developing the Vendor 
     - [x] **Documents Table:**  
       - Columns: `id` (UUID, primary key), `vendor_id` (foreign key), `type`, `file_url`, `uploaded_at` (timestamp), `expires_at` (date).
 
-- [ ] **Authentication Endpoints:**
+- [x] **Authentication Endpoints:**
   - [x] Implement user registration endpoint.
   - [x] Implement user login endpoint:
     - [x] Use JWT to generate a token on successful login.
   - [x] Create JWT authentication middleware.
   - [x] Integrate the middleware into at least one protected test route.
 
-- [ ] **Testing & Documentation:**
-  - [ ] Write basic tests to verify database connectivity and authentication.
+- [x] **Testing & Documentation:**
+  - [x] Write basic tests to verify database connectivity and authentication.
   - [x] Document how to run migrations and test the endpoints.
 
 ---

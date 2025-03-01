@@ -15,4 +15,8 @@ if [ "$1" = "--seed" ]; then
   docker exec vms-backend npx knex seed:run
 fi
 
+
+psql -U postgres -c "CREATE DATABASE vms_test;"
+
+
 echo "Database initialization completed!"

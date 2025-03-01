@@ -47,7 +47,7 @@ This checklist provides a thorough step-by-step guide for developing the Vendor 
 
 - [ ] **Testing & Documentation:**
   - [ ] Write basic tests to verify database connectivity and authentication.
-  - [ ] Document how to run migrations and test the endpoints.
+  - [x] Document how to run migrations and test the endpoints.
 
 ---
 

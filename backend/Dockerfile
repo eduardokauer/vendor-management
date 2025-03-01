@@ -1,17 +1,16 @@
-# backend/Dockerfile
 FROM node:18-alpine
 
 WORKDIR /usr/src/app
 
-# Copy package files and install dependencies
+# Install netcat for network checks
+RUN apk add --no-cache netcat-openbsd
+
 COPY package*.json ./
 RUN npm install
 
-# Copy application code
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Make wait script executable
+RUN chmod +x wait-for-postgres.sh
 
-# Command to run the application
-CMD ["npm", "run", "dev"]
+CMD ["sh", "-c", "./wait-for-postgres.sh && npm run dev"]

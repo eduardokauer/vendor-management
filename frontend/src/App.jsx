@@ -10,8 +10,8 @@ function App() {
       try {
         // Use the backend service name when accessing from within Docker
         const apiUrl = import.meta.env.PROD 
-          ? '/api/hello'  // Production path (if using a reverse proxy)
-          : 'http://localhost:3000/api/hello';  // Development path
+        ? 'http://backend:3000/api/hello'  // Docker network
+        : 'http://localhost:3000/api/hello'; // Local development
           
         const response = await fetch(apiUrl);
         const data = await response.json();

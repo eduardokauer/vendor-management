@@ -1,26 +1,33 @@
-// index.js
+// backend/index.js
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-
-// Import database connection
 const db = require('./config/db');
 
+// Create express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://frontend:5173',
+    'http://172.19.0.0/24' // Your Docker subnet
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  credentials: true
+}));
 app.use(express.json());
 
-// Test database connection
+// Database connection check middleware
 app.use(async (req, res, next) => {
   try {
     await db.raw('SELECT 1');
     next();
   } catch (error) {
     console.error('Database connection error:', error);
-    return res.status(500).json({ message: 'Database connection error' });
+    res.status(500).json({ message: 'Database connection error' });
   }
 });
 
@@ -29,18 +36,33 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello World from VMS Backend!' });
 });
 
-// Auth routes
 app.use('/api/auth', require('./routes/auth'));
-
-// Vendor routes
 app.use('/api/vendors', require('./routes/vendors'));
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Server instance
+let server;
 
-// Handle uncaught errors
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+// Graceful shutdown
+const shutdown = () => {
+  if (server) {
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+};
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+
+// Export for testing
+module.exports = { app, server };

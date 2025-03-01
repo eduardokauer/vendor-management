@@ -76,11 +76,32 @@ Create .env file in /backend:
 ▸ View backend logs:
     $ docker logs vms-backend -f
 
-## API Reference
+🔌 Core API Endpoints
+Method	Endpoint	Description
+POST	/api/auth/register	User registration
+POST	/api/auth/login	User login
+GET	/api/auth/me	Get current user
+GET	/api/vendors	List all vendors
+GET	/api/vendors/:id	Get single vendor
 
-│ Method │ Endpoint           │ Description        │
-├────────┼────────────────────┼────────────────────┤
-│ POST   │ /api/auth/register │ User registration  │
-│ POST   │ /api/auth/login    │ User login         │
-│ GET    │ /api/vendors       │ List all vendors   │
-│ GET    │ /api/vendors/:id   │ Get vendor details │
+
+
+
+Testing
+Basic Test Commands:
+
+Copy
+# Run all tests
+docker exec vms-backend npm test
+
+# Run tests with coverage
+docker exec vms-backend npm run test:cov
+
+# Watch mode (development)
+docker exec -it vms-backend npm run test:watch
+Test Structure:
+
+Copy
+__tests__/
+├── database.test.js   - Verifies DB connection
+└── auth.test.js       - Tests registration/login flow

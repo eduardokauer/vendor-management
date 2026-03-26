@@ -3,6 +3,8 @@ services:
   # Shared PostgreSQL with multiple databases
   postgres:
     image: postgres:15-alpine
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -22,15 +24,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
     environment:
       NODE_ENV: development
-      DB_NAME: vms_dev
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: dev_secret_123
+      JWT_EXPIRY: 24h
     command: npm run dev
+    volumes:
+      - ./backend:/usr/src/app
+      - backend_node_modules:/usr/src/app/node_modules
     ports:
       - "3000:3000"
     networks:
@@ -44,6 +46,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    profiles:
+      - test
     environment:
       NODE_ENV: test
       DB_NAME: vms_test
@@ -68,7 +72,10 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://backend-dev:3000
+      VITE_API_URL: http://localhost:3000
+    volumes:
+      - ./frontend:/usr/src/app
+      - frontend_node_modules:/usr/src/app/node_modules
     networks:
       - vms-network
     depends_on:
@@ -80,3 +87,5 @@ networks:
 
 volumes:
   postgres_data:
+  backend_node_modules:
+  frontend_node_modules:

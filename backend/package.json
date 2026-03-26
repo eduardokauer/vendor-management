@@ -7,7 +7,7 @@
     "dev": "nodemon index.js",
     "migrate:test": "knex migrate:latest --env test",
     "seed:test": "knex seed:run --env test",
-    "test": "npm run migrate:test && npm run seed:test && jest --detectOpenHandles --runInBand",
+    "test": "npm run migrate:test && npm run seed:test && jest --detectOpenHandles --forceExit --runInBand",
     "test:watch": "jest --watch --runInBand",
     "test:cov": "jest --coverage --runInBand"
   },

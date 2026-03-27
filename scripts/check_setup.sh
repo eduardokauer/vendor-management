@@ -188,6 +188,15 @@ else
     warnings=$((warnings + 1))
 fi
 
+if is_true "${AUTO_RESUME_ON_RPD:-true}"; then
+    if command -v crontab >/dev/null 2>&1; then
+        log_ok "crontab is available for automatic RPD resume"
+    else
+        log_warn "crontab is not available; automatic RPD resume will not work"
+        warnings=$((warnings + 1))
+    fi
+fi
+
 codex_model="${CODEX_MODEL:-gpt-5.4}"
 codex_sandbox="${CODEX_SANDBOX:-workspace-write}"
 gemini_model="${GEMINI_MODEL:-gemini-2.5-flash}"

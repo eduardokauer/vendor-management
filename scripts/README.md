@@ -29,6 +29,8 @@ Example:
 ```env
 GEMINI_KEY=your_gemini_api_key_here
 GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MAX_RETRIES=3
+GEMINI_FALLBACK_RETRY_SECONDS=60
 # Optional when `codex` is not in PATH
 # CODEX_BIN=/absolute/path/to/codex
 CODEX_MODEL=gpt-5.4
@@ -39,6 +41,9 @@ AUTO_CHECK_INTERVAL=10
 AUTO_CHECK_DISCOVERY_ATTEMPTS=12
 AUTO_MERGE_ON_APPROVAL=true
 AUTO_BRANCH_PREFIX=feature
+AUTO_RESUME_ON_RPD=true
+AUTO_RESUME_POLL_MINUTES=10
+AUTO_RESUME_AFTER_RESET_MINUTES=5
 ```
 
 Suggested setup:
@@ -51,6 +56,10 @@ Important:
 - This root `.env` is for local orchestration scripts only.
 - The application itself still uses `backend/.env`.
 - Do not move backend secrets into the root `.env`.
+- `GEMINI_MAX_RETRIES` and `GEMINI_FALLBACK_RETRY_SECONDS` control automatic retry for short-lived Gemini limits like RPM and TPM.
+- `AUTO_RESUME_ON_RPD` enables automatic resume after daily Gemini quota reset.
+- `AUTO_RESUME_POLL_MINUTES` controls how often the cron job checks for due resumes.
+- `AUTO_RESUME_AFTER_RESET_MINUTES` adds a small cushion after the daily reset before retrying automatically.
 
 ## Framework file structure
 
@@ -67,6 +76,7 @@ scripts/review_pr.sh
 scripts/merge_pr.sh
 scripts/check_setup.sh
 scripts/run_increment.sh
+scripts/resume_pending.sh
 .github/workflows/test.yml
 scripts/README.md
 ```
@@ -97,6 +107,7 @@ prompts/generated/
 2. Choose either step-by-step execution or one-command orchestration.
 3. In step-by-step mode, run `gen_prompt.sh`, then let Codex implement the increment, then use `review_pr.sh` and `merge_pr.sh`.
 4. In orchestrated mode, run `run_increment.sh`, which generates the prompt, executes Codex, opens or updates the PR, waits for checks, asks Gemini for review, sends correction prompts back to Codex when needed and merges on approval.
+5. If Gemini daily quota is exhausted during orchestration, `run_increment.sh` writes a pending resume state and installs a user cron entry that polls until the next daily reset window is reached, then relaunches the increment automatically.
 
 ## Quick start for autonomous mode
 
@@ -209,6 +220,8 @@ What it does:
 - waits for GitHub checks to appear and finish
 - asks Gemini to review the PR against the archived prompt
 - if Gemini rejects the PR, stores a correction prompt and sends it back to Codex
+- if Gemini hits short-lived API limits, retries automatically based on `RetryInfo` or fallback wait values
+- if Gemini hits daily request quota, stores a pending resume job and relies on a user cron poller to restart the increment after the reset window
 - repeats until approval or until the maximum number of cycles is reached
 - optionally merges automatically when the review is approved
 
@@ -217,6 +230,8 @@ Artifacts generated during the loop:
 - `prompts/generated/INC-XXX-executor-*.md`: executor prompts wrapped with automation context
 - `prompts/generated/INC-XXX-*-events.jsonl`: raw Codex batch event log
 - `prompts/generated/INC-XXX-*-last-message.md`: last Codex message captured from the run
+- `prompts/generated/pending_rpd_resume.json`: pending resume state when daily Gemini quota is exhausted
+- `prompts/generated/auto_resume.log`: cron-driven resume log
 - `prompts/review_result.md`: latest Gemini review output
 - `prompts/correction_prompt.md`: latest correction prompt when review fails
 
@@ -224,6 +239,7 @@ Important:
 - the working tree must be clean before `run_increment.sh` starts;
 - the PR must target `develop`;
 - backlog-driven automation expects PR titles in the format `INC-XXX ...`.
+- automatic daily resume depends on `crontab` being available for the current user.
 
 ### 3. Review the current PR with Gemini
 
@@ -363,6 +379,10 @@ docker compose --profile test run --rm backend-test
   - Install GitHub CLI and ensure it is available in the shell running the script.
 - `Docker daemon is not reachable from this shell`
   - Confirm that your user can access Docker and reopen the terminal session after joining the `docker` group, or run `newgrp docker`.
+- `Gemini API daily quota exceeded`
+  - The orchestrator will schedule an automatic retry if `AUTO_RESUME_ON_RPD=true`. You can inspect `prompts/generated/pending_rpd_resume.json` and `crontab -l` for the scheduled state.
+- `Gemini API rate limit hit`
+  - The scripts already retry short-lived RPM/TPM limits automatically. If the retries still exhaust, increase `GEMINI_MAX_RETRIES` or reduce prompt size.
 - `Prompt source not found`
   - Run `./scripts/gen_prompt.sh` before `./scripts/review_pr.sh` so the increment-specific archived prompt exists.
 - `Could not detect an INC-XXX code in the PR title`

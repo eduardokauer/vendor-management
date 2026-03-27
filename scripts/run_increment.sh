@@ -58,6 +58,112 @@ resolve_codex_bin() {
     exit 1
 }
 
+write_rpd_resume_state() {
+    local increment_code="$1"
+    local increment_title="$2"
+    local command_args_json="$3"
+    local state_path="$4"
+    local offset_minutes="$5"
+
+    python3 - "$increment_code" "$increment_title" "$command_args_json" "$state_path" "$offset_minutes" <<'PY'
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+increment_code = sys.argv[1]
+increment_title = sys.argv[2]
+command_args = json.loads(sys.argv[3])
+state_path = sys.argv[4]
+offset_minutes = int(sys.argv[5])
+
+pacific = ZoneInfo("America/Los_Angeles")
+now_pt = datetime.now(pacific)
+resume_pt = (now_pt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+resume_utc = resume_pt.astimezone(timezone.utc)
+
+payload = {
+    "increment_code": increment_code,
+    "increment_title": increment_title,
+    "reason": "gemini_rpd_exhausted",
+    "created_at_utc": datetime.now(timezone.utc).isoformat(),
+    "resume_after_utc": resume_utc.isoformat(),
+    "resume_after_pacific": resume_pt.isoformat(),
+    "command": command_args,
+}
+
+with open(state_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2, ensure_ascii=False)
+PY
+}
+
+ensure_rpd_resume_cron() {
+    local cron_poll_minutes="$1"
+    local cron_marker="# VMS_AUTO_RESUME"
+    local cron_job_script="$repo_root/scripts/resume_pending.sh"
+    local cron_log_path="$generated_dir_path/auto_resume.log"
+    local escaped_repo_root escaped_log_path escaped_script current_crontab filtered_crontab cron_line
+
+    if ! command -v crontab >/dev/null 2>&1; then
+        echo "crontab is not available, so automatic RPD resume cannot be scheduled." >&2
+        return 1
+    fi
+
+    mkdir -p "$generated_dir_path"
+
+    escaped_repo_root="$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$repo_root")"
+    escaped_script="$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$cron_job_script")"
+    escaped_log_path="$(python3 -c 'import shlex,sys; print(shlex.quote(sys.argv[1]))' "$cron_log_path")"
+
+    cron_line="*/${cron_poll_minutes} * * * * /bin/bash -lc 'cd ${escaped_repo_root} && ${escaped_script} >> ${escaped_log_path} 2>&1' ${cron_marker}"
+    current_crontab="$(crontab -l 2>/dev/null || true)"
+    filtered_crontab="$(printf '%s\n' "$current_crontab" | grep -vF "$cron_marker" || true)"
+
+    {
+        if [[ -n "$filtered_crontab" ]]; then
+            printf '%s\n' "$filtered_crontab"
+        fi
+        printf '%s\n' "$cron_line"
+    } | crontab -
+}
+
+schedule_rpd_resume() {
+    local increment_code="$1"
+    local increment_title="$2"
+    local pending_state_path="$3"
+    local cron_poll_minutes="${AUTO_RESUME_POLL_MINUTES:-10}"
+    local resume_offset_minutes="${AUTO_RESUME_AFTER_RESET_MINUTES:-5}"
+    local command_args_json
+    local resume_after_utc
+    local resume_after_pacific
+
+    command_args_json="$(python3 - "$increment_code" <<'PY'
+import json
+import sys
+
+increment_code = sys.argv[1]
+print(json.dumps(["./scripts/run_increment.sh", "--increment", increment_code]))
+PY
+)"
+
+    write_rpd_resume_state "$increment_code" "$increment_title" "$command_args_json" "$pending_state_path" "$resume_offset_minutes"
+
+    if ! ensure_rpd_resume_cron "$cron_poll_minutes"; then
+        echo "Automatic resume could not be scheduled for the daily Gemini quota reset." >&2
+        echo "Pending resume state was still written to $pending_state_path." >&2
+        return 1
+    fi
+
+    resume_after_utc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["resume_after_utc"])' "$pending_state_path")"
+    resume_after_pacific="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["resume_after_pacific"])' "$pending_state_path")"
+
+    echo "Gemini daily quota exhausted for $increment_code."
+    echo "Automatic resume scheduled after daily reset."
+    echo "Resume after (Pacific): $resume_after_pacific"
+    echo "Resume after (UTC): $resume_after_utc"
+    echo "A user cron job now polls every ${cron_poll_minutes} minute(s) and will rerun ./scripts/run_increment.sh --increment $increment_code when due."
+}
+
 require_command() {
     local command_name="$1"
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -446,6 +552,7 @@ check_setup_script="$repo_root/scripts/check_setup.sh"
 gen_prompt_script="$repo_root/scripts/gen_prompt.sh"
 review_script="$repo_root/scripts/review_pr.sh"
 merge_script="$repo_root/scripts/merge_pr.sh"
+resume_pending_state_path="$generated_dir_path/pending_rpd_resume.json"
 
 load_env_file "$root_env_path"
 
@@ -512,6 +619,13 @@ if [[ "$dry_run" == "true" ]]; then
     exit 0
 fi
 
+if [[ -f "$resume_pending_state_path" ]]; then
+    pending_increment_code="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8")).get("increment_code",""))' "$resume_pending_state_path" 2>/dev/null || true)"
+    if [[ "$pending_increment_code" == "$increment_code" ]]; then
+        rm -f "$resume_pending_state_path"
+    fi
+fi
+
 if [[ "$existing_pr_count" -gt 0 ]]; then
     ensure_local_branch "$branch_name"
     pr_number="$(python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["number"])' <<<"$existing_pr_json")"
@@ -528,7 +642,15 @@ else
     if [[ -n "$increment_override" ]]; then
         gen_prompt_cmd+=(--increment "$increment_override")
     fi
-    "${gen_prompt_cmd[@]}"
+    if "${gen_prompt_cmd[@]}"; then
+        :
+    else
+        gen_prompt_status=$?
+        if [[ "$gen_prompt_status" -eq 75 ]] && is_true "${AUTO_RESUME_ON_RPD:-true}"; then
+            schedule_rpd_resume "$increment_code" "$increment_title" "$resume_pending_state_path" || true
+        fi
+        exit "$gen_prompt_status"
+    fi
 
     git switch -c "$branch_name"
 
@@ -566,6 +688,14 @@ while (( cycle <= auto_max_cycles )); do
             echo "PR #$pr_number is approved and ready for merge."
         fi
         exit 0
+    else
+        review_status=$?
+        if [[ "$review_status" -eq 75 ]] && is_true "${AUTO_RESUME_ON_RPD:-true}"; then
+            schedule_rpd_resume "$increment_code" "$increment_title" "$resume_pending_state_path" || true
+        fi
+        if [[ "$review_status" -eq 75 ]]; then
+            exit "$review_status"
+        fi
     fi
 
     if [[ ! -s "$correction_prompt_path" ]]; then

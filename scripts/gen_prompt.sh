@@ -92,11 +92,15 @@ invoke_gemini_prompt() {
     local max_output_tokens="$4"
     local model_name="$5"
     local payload_file response_file http_code
+    local max_attempts="${GEMINI_MAX_RETRIES:-3}"
+    local fallback_wait_seconds="${GEMINI_FALLBACK_RETRY_SECONDS:-60}"
+    local attempt=1
 
-    payload_file="$(mktemp)"
-    response_file="$(mktemp)"
+    while (( attempt <= max_attempts )); do
+        payload_file="$(mktemp)"
+        response_file="$(mktemp)"
 
-    python3 - "$prompt_file" "$temperature" "$max_output_tokens" > "$payload_file" <<'PY'
+        python3 - "$prompt_file" "$temperature" "$max_output_tokens" > "$payload_file" <<'PY'
 import json
 import sys
 
@@ -122,31 +126,24 @@ payload = {
 json.dump(payload, sys.stdout, ensure_ascii=False)
 PY
 
-    if ! http_code="$(
-        curl -sS \
-            -o "$response_file" \
-            -w '%{http_code}' \
-            -X POST \
-            -H 'Content-Type: application/json' \
-            --data-binary "@$payload_file" \
-            "https://generativelanguage.googleapis.com/v1beta/models/${model_name}:generateContent?key=$api_key"
-    )"; then
-        local body
-        body="$(<"$response_file")"
-        rm -f "$payload_file" "$response_file"
-        echo "Gemini API request failed: ${body:-curl request failed}" >&2
-        exit 1
-    fi
+        if ! http_code="$(
+            curl -sS \
+                -o "$response_file" \
+                -w '%{http_code}' \
+                -X POST \
+                -H 'Content-Type: application/json' \
+                --data-binary "@$payload_file" \
+                "https://generativelanguage.googleapis.com/v1beta/models/${model_name}:generateContent?key=$api_key"
+        )"; then
+            local body
+            body="$(<"$response_file")"
+            rm -f "$payload_file" "$response_file"
+            echo "Gemini API request failed: ${body:-curl request failed}" >&2
+            return 1
+        fi
 
-    if (( http_code < 200 || http_code >= 300 )); then
-        local body
-        body="$(<"$response_file")"
-        rm -f "$payload_file" "$response_file"
-        echo "Gemini API request failed (HTTP $http_code): $body" >&2
-        exit 1
-    fi
-
-    python3 - "$response_file" <<'PY'
+        if (( http_code >= 200 && http_code < 300 )); then
+            python3 - "$response_file" <<'PY'
 import json
 import sys
 
@@ -169,8 +166,91 @@ if not text:
 
 sys.stdout.write(text)
 PY
+            rm -f "$payload_file" "$response_file"
+            return 0
+        fi
 
-    rm -f "$payload_file" "$response_file"
+        if [[ "$http_code" == "429" ]]; then
+            local quota_info
+            quota_info="$(python3 - "$response_file" <<'PY'
+import json
+import math
+import re
+import sys
+
+path = sys.argv[1]
+data = json.load(open(path, encoding="utf-8"))
+error = data.get("error") or {}
+message = (error.get("message") or "").strip()
+details = error.get("details") or []
+
+retry_seconds = 0
+quota_ids = []
+is_daily = False
+
+for detail in details:
+    dtype = detail.get("@type", "")
+    if dtype.endswith("RetryInfo"):
+        raw = detail.get("retryDelay", "0s")
+        match = re.match(r"(?:(\d+)s)?(?:(\d+)n)?", raw)
+        if match:
+            seconds = int(match.group(1) or 0)
+            nanos = int(match.group(2) or 0)
+            retry_seconds = max(retry_seconds, seconds + (1 if nanos else 0))
+    if dtype.endswith("QuotaFailure"):
+        for violation in detail.get("violations") or []:
+            quota_id = violation.get("quotaId", "")
+            if quota_id:
+                quota_ids.append(quota_id)
+                if "PerDay" in quota_id:
+                    is_daily = True
+
+if not retry_seconds:
+    retry_seconds = 0
+
+print(f"retry_seconds={retry_seconds}")
+print(f"is_daily={'true' if is_daily else 'false'}")
+print("quota_ids=" + ",".join(quota_ids))
+print("message=" + message.replace("\n", " ").replace("\r", " "))
+PY
+)"
+            local retry_seconds is_daily quota_ids quota_message
+            retry_seconds="$(printf '%s\n' "$quota_info" | sed -n 's/^retry_seconds=//p')"
+            is_daily="$(printf '%s\n' "$quota_info" | sed -n 's/^is_daily=//p')"
+            quota_ids="$(printf '%s\n' "$quota_info" | sed -n 's/^quota_ids=//p')"
+            quota_message="$(printf '%s\n' "$quota_info" | sed -n 's/^message=//p')"
+
+            rm -f "$payload_file" "$response_file"
+
+            if [[ "$is_daily" == "true" ]]; then
+                echo "Gemini API daily quota exceeded for model ${model_name}. quota_ids=${quota_ids:-unknown}. ${quota_message}" >&2
+                return 75
+            fi
+
+            if (( attempt >= max_attempts )); then
+                echo "Gemini API rate limit persisted after ${attempt} attempts for model ${model_name}. quota_ids=${quota_ids:-unknown}. ${quota_message}" >&2
+                return 1
+            fi
+
+            if [[ -z "$retry_seconds" || "$retry_seconds" == "0" ]]; then
+                retry_seconds="$(( fallback_wait_seconds * attempt ))"
+            fi
+
+            echo "Gemini API rate limit hit for model ${model_name}. quota_ids=${quota_ids:-unknown}. Waiting ${retry_seconds}s before retry ${attempt}/${max_attempts}..." >&2
+            sleep "$retry_seconds"
+            attempt=$((attempt + 1))
+            continue
+        fi
+
+        local body
+        body="$(<"$response_file")"
+        rm -f "$payload_file" "$response_file"
+        echo "Gemini API request failed (HTTP $http_code): $body" >&2
+        return 1
+    done
+
+    echo "Gemini API retry budget exhausted unexpectedly." >&2
+    return 1
 }
 
 open_in_vscode() {

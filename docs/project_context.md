@@ -161,6 +161,7 @@ Ordem de leitura recomendada:
 - `scripts/check_setup.sh` verifica pre-requisitos locais como `gh`, `codex`, Docker, Git e `GEMINI_KEY`.
 - `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente, salva `prompts/next_prompt.md` e arquiva uma copia vinculada ao `INC-XXX`.
 - `scripts/run_increment.sh` pode executar o ciclo automatizado: gerar prompt, criar/reusar branch, chamar o Codex em batch, abrir/atualizar PR, aguardar checks, pedir review ao Gemini, reenviar correcao ao Codex se necessario e mergear quando aprovado.
+- Se o Gemini bater limite diario de requests, `scripts/run_increment.sh` agenda retomada automatica via `scripts/resume_pending.sh` e `crontab`.
 - `scripts/review_pr.sh` tambem pode ser usado de forma isolada para revisar o PR contra o objetivo, fora de escopo e DoD usando o prompt arquivado do incremento.
 - `scripts/merge_pr.sh` tambem pode ser usado de forma isolada para fazer squash merge em `develop` e marcar o incremento como concluido via GitHub API.
 
@@ -174,6 +175,7 @@ Ordem de leitura recomendada:
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
 - A automacao ponta a ponta depende de o CLI do Codex estar disponivel localmente e autenticado para execucao nao interativa.
+- A automacao ponta a ponta tambem depende de `crontab` quando a retomada automatica por limite diario do Gemini estiver habilitada.
 - `backend/.env` e `.env` na raiz tem papeis diferentes e nao devem ser confundidos.
 - O fluxo de review e merge depende de o titulo do PR conter `INC-XXX` e de o trabalho seguir um incremento por vez.
 

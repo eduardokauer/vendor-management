@@ -1,11 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+orchestrator_log_path=""
+
 trim() {
     local value="$1"
     value="${value#"${value%%[![:space:]]*}"}"
     value="${value%"${value##*[![:space:]]}"}"
     printf '%s' "$value"
+}
+
+timestamp() {
+    date '+%Y-%m-%d %H:%M:%S'
+}
+
+log_with_level() {
+    local level="$1"
+    shift
+    local message="$*"
+    local line="[$(timestamp)] [$level] $message"
+
+    printf '%s\n' "$line"
+    if [[ -n "${orchestrator_log_path:-}" ]]; then
+        printf '%s\n' "$line" >> "$orchestrator_log_path"
+    fi
+}
+
+log_info() {
+    log_with_level INFO "$@"
+}
+
+log_warn() {
+    log_with_level WARN "$@"
+}
+
+log_error() {
+    log_with_level ERROR "$@"
 }
 
 load_env_file() {
@@ -149,19 +179,19 @@ PY
     write_rpd_resume_state "$increment_code" "$increment_title" "$command_args_json" "$pending_state_path" "$resume_offset_minutes"
 
     if ! ensure_rpd_resume_cron "$cron_poll_minutes"; then
-        echo "Automatic resume could not be scheduled for the daily Gemini quota reset." >&2
-        echo "Pending resume state was still written to $pending_state_path." >&2
+        log_warn "Automatic resume could not be scheduled for the daily Gemini quota reset."
+        log_warn "Pending resume state was still written to $pending_state_path."
         return 1
     fi
 
     resume_after_utc="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["resume_after_utc"])' "$pending_state_path")"
     resume_after_pacific="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["resume_after_pacific"])' "$pending_state_path")"
 
-    echo "Gemini daily quota exhausted for $increment_code."
-    echo "Automatic resume scheduled after daily reset."
-    echo "Resume after (Pacific): $resume_after_pacific"
-    echo "Resume after (UTC): $resume_after_utc"
-    echo "A user cron job now polls every ${cron_poll_minutes} minute(s) and will rerun ./scripts/run_increment.sh --increment $increment_code when due."
+    log_warn "Gemini daily quota exhausted for $increment_code."
+    log_info "Automatic resume scheduled after daily reset."
+    log_info "Resume after (Pacific): $resume_after_pacific"
+    log_info "Resume after (UTC): $resume_after_utc"
+    log_info "A user cron job now polls every ${cron_poll_minutes} minute(s) and will rerun ./scripts/run_increment.sh --increment $increment_code when due."
 }
 
 require_command() {
@@ -262,9 +292,11 @@ Automation context:
 - The branch \`$branch_name\` has already been created and checked out.
 - Reuse the current branch. Do not create a different branch.
 - Target base branch: \`develop\`.
-- Open or update a PR targeting \`develop\` with title \`$increment_code $increment_title\`.
-- If a PR already exists for this branch, update it instead of creating a new one.
-- Commit only after the DoD is satisfied.
+- The host orchestrator owns validation, commit, push, PR creation/update and merge.
+- Do not commit, push, open or update a PR from inside Codex.
+- Do not run GitHub auth checks or publish steps from inside Codex.
+- Prefer lightweight validation that is available inside your sandbox, but do not block on host-level Docker, browser or GitHub steps.
+- Leave the working tree with the intended code changes so the host orchestrator can validate and publish them.
 
 EOF
         cat "$base_prompt_path"
@@ -283,8 +315,10 @@ Automation context:
 - Continue the existing work for increment \`$increment_code\`.
 - Reuse the current branch \`$branch_name\`.
 - Do not create a new branch.
-- Update the existing PR if it already exists.
-- Re-run the validations required by the work you are fixing.
+- The host orchestrator owns validation, commit, push, PR update and merge.
+- Do not commit, push, open or update a PR from inside Codex.
+- Focus on the code changes needed for this follow-up.
+- Re-run only lightweight checks that are available in your sandbox. The host will run the required project validations after your edits.
 
 EOF
         cat "$source_prompt_path"
@@ -309,8 +343,8 @@ Automation context:
 - Current branch: \`$branch_name\`
 - Current PR: \`#$pr_number\`
 - Do not create a new branch.
-- Do not create a new PR.
-- Update the existing PR only.
+- The host orchestrator owns validation, commit, push and PR updates.
+- Do not commit, push, create or update a PR from inside Codex.
 
 The current increment definition is:
 
@@ -355,6 +389,7 @@ push_branch_if_needed() {
     fi
 
     if ! git ls-remote --exit-code --heads origin "$branch_name" >/dev/null 2>&1; then
+        log_info "Pushing new branch to origin: $branch_name"
         git push -u origin "$branch_name"
         return
     fi
@@ -362,7 +397,10 @@ push_branch_if_needed() {
     local ahead_count
     ahead_count="$(git rev-list --count "origin/$branch_name..$branch_name")"
     if [[ "$ahead_count" -gt 0 ]]; then
+        log_info "Pushing ${ahead_count} new commit(s) to origin/$branch_name"
         git push origin "$branch_name"
+    else
+        log_info "No new commits to push for $branch_name"
     fi
 }
 
@@ -405,8 +443,136 @@ run_codex_exec() {
         codex_cmd+=(-s "$codex_sandbox")
     fi
 
-    echo "Running Codex executor for $increment_code [$label]..."
-    "${codex_cmd[@]}" - < "$prompt_path" | tee "$last_codex_events_path"
+    log_info "Starting Codex executor for $increment_code [$label]"
+    log_info "Prompt archive: $last_codex_prompt_archive_path"
+    log_info "Raw Codex events: $last_codex_events_path"
+    log_info "Last Codex message: $last_codex_message_path"
+
+    "${codex_cmd[@]}" - < "$prompt_path" | python3 - "$last_codex_events_path" "$orchestrator_log_path" <<'PY'
+import json
+import sys
+from datetime import datetime
+
+events_path = sys.argv[1]
+human_log_path = sys.argv[2]
+
+
+def shorten(text, limit=140):
+    text = (text or "").replace("\n", " ").replace("\r", " ").strip()
+    if len(text) <= limit:
+        return text
+    return text[: limit - 3].rstrip() + "..."
+
+
+def emit(message):
+    line = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] [CODEX] {message}"
+    print(line, flush=True)
+    if human_log_path:
+        with open(human_log_path, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+
+with open(events_path, "w", encoding="utf-8") as raw_handle:
+    for raw_line in sys.stdin:
+        raw_handle.write(raw_line)
+        raw_handle.flush()
+
+        try:
+            payload = json.loads(raw_line)
+        except json.JSONDecodeError:
+            continue
+
+        event_type = payload.get("type", "")
+        item = payload.get("item") or {}
+        item_type = item.get("type", "")
+
+        if event_type == "item.started":
+            if item_type == "command_execution":
+                emit(f"running command: {shorten(item.get('command', ''))}")
+            elif item_type == "file_change":
+                changes = item.get("changes") or []
+                names = [change.get("path", "").split("/")[-1] for change in changes[:5] if change.get("path")]
+                suffix = "..." if len(changes) > 5 else ""
+                emit(f"editing files: {', '.join(names)}{suffix}" if names else "editing files")
+            elif item_type == "agent_message":
+                emit(shorten(item.get("text", "")))
+            elif item_type == "mcp_tool_call":
+                emit(f"calling tool: {item.get('tool') or item.get('server') or 'external tool'}")
+        elif event_type == "item.updated" and item_type == "todo_list":
+            items = item.get("items") or []
+            completed = sum(1 for todo in items if todo.get("completed"))
+            emit(f"updated plan: {completed}/{len(items)} items completed")
+        elif event_type == "item.completed":
+            if item_type == "command_execution":
+                exit_code = item.get("exit_code")
+                command = shorten(item.get("command", ""))
+                if exit_code == 0:
+                    emit(f"command completed: {command}")
+                else:
+                    emit(f"command failed ({exit_code}): {command}")
+            elif item_type == "agent_message":
+                emit(shorten(item.get("text", "")))
+            elif item_type == "file_change":
+                emit("file edits completed")
+            elif item_type == "mcp_tool_call":
+                emit(f"tool completed: {item.get('tool') or item.get('server') or 'external tool'}")
+        elif event_type == "turn.completed":
+            emit("executor turn completed")
+PY
+
+    log_info "Codex executor finished for $increment_code [$label]"
+}
+
+worktree_has_changes() {
+    [[ -n "$(git status --porcelain)" ]]
+}
+
+ensure_executor_produced_changes() {
+    if worktree_has_changes; then
+        return 0
+    fi
+
+    log_error "Codex finished without producing local changes."
+    return 1
+}
+
+run_host_validations() {
+    local increment_code="$1"
+    local label="$2"
+    local validation_log_path="$generated_dir_path/${increment_code}-${label}-host-validation.log"
+
+    : > "$validation_log_path"
+    log_info "Host validation log: $validation_log_path"
+
+    log_info "Running host hygiene check: git diff --check"
+    if ! git diff --check 2>&1 | tee -a "$validation_log_path"; then
+        log_error "git diff --check reported formatting issues."
+        return 1
+    fi
+
+    log_info "Running required host validation: docker compose --profile test run --rm backend-test"
+    if ! docker compose --profile test run --rm backend-test 2>&1 | tee -a "$validation_log_path"; then
+        log_error "Required host validation failed. Keeping local changes for inspection."
+        return 1
+    fi
+
+    log_info "Host validations completed successfully."
+}
+
+commit_increment_changes() {
+    local increment_code="$1"
+    local increment_title="$2"
+    local commit_message="${increment_code} ${increment_title}"
+
+    git add -A
+
+    if git diff --cached --quiet; then
+        log_error "No staged changes were found after validation."
+        return 1
+    fi
+
+    log_info "Creating commit: $commit_message"
+    git commit -m "$commit_message"
 }
 
 ensure_pr_exists() {
@@ -424,6 +590,7 @@ ensure_pr_exists() {
         if [[ "$pr_title" != "$increment_code"* ]]; then
             gh pr edit "$pr_number" --title "$increment_code $increment_title" >/dev/null
         fi
+        log_info "Using existing PR #$pr_number for branch $branch_name"
         return
     fi
 
@@ -450,6 +617,7 @@ EOF
         cat "$executor_summary_path"
     } > "$pr_body_file"
 
+    log_info "Creating PR for $branch_name against develop"
     gh pr create --base develop --head "$branch_name" --title "$increment_code $increment_title" --body-file "$pr_body_file" >/dev/null
     rm -f "$pr_body_file"
 
@@ -461,6 +629,7 @@ EOF
     fi
 
     pr_number="$(python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["number"])' <<<"$existing_pr_json")"
+    log_info "Created PR #$pr_number"
 }
 
 wait_for_pr_checks() {
@@ -477,19 +646,22 @@ wait_for_pr_checks() {
         fi
 
         if (( attempt == auto_check_discovery_attempts )); then
-            echo "No PR checks reported for PR #$pr_number after waiting. Failing closed before review/merge." >&2
+            log_error "No PR checks reported for PR #$pr_number after waiting. Failing closed before review/merge."
             return 2
         fi
 
-        echo "No PR checks reported for PR #$pr_number yet. Waiting ${auto_check_interval}s..."
+        log_info "No PR checks reported for PR #$pr_number yet. Waiting ${auto_check_interval}s..."
         sleep "$auto_check_interval"
         attempt=$((attempt + 1))
     done
 
+    log_info "Checks detected for PR #$pr_number. Waiting for completion..."
     if gh pr checks "$pr_number" --watch --fail-fast --interval "$auto_check_interval"; then
+        log_info "PR checks passed for PR #$pr_number"
         return 0
     fi
 
+    log_warn "PR checks reported failure for PR #$pr_number"
     return 1
 }
 
@@ -600,22 +772,25 @@ if [[ -n "$max_cycles_override" ]]; then
 fi
 
 mkdir -p "$generated_dir_path"
+orchestrator_log_path="$generated_dir_path/${increment_code}-orchestrator.log"
+: > "$orchestrator_log_path"
 
 existing_pr_json="$(find_open_pr_json "$branch_name")"
 existing_pr_count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"$existing_pr_json")"
 
-echo "Increment: $increment_code"
-echo "Title: $increment_title"
-echo "Branch: $branch_name"
+log_info "Starting orchestration for $increment_code"
+log_info "Increment title: $increment_title"
+log_info "Target branch: $branch_name"
+log_info "Orchestrator log: $orchestrator_log_path"
 if [[ "$existing_pr_count" -gt 0 ]]; then
     existing_pr_number="$(python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["number"])' <<<"$existing_pr_json")"
-    echo "Existing PR detected: #$existing_pr_number"
+    log_info "Existing PR detected: #$existing_pr_number"
 else
-    echo "Existing PR detected: none"
+    log_info "Existing PR detected: none"
 fi
 
 if [[ "$dry_run" == "true" ]]; then
-    echo "Dry run enabled. No changes were made."
+    log_info "Dry run enabled. No changes were made."
     exit 0
 fi
 
@@ -627,17 +802,20 @@ if [[ -f "$resume_pending_state_path" ]]; then
 fi
 
 if [[ "$existing_pr_count" -gt 0 ]]; then
+    log_info "Resuming existing branch and PR for $increment_code"
     ensure_local_branch "$branch_name"
     pr_number="$(python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["number"])' <<<"$existing_pr_json")"
 else
+    log_info "Syncing local develop before creating the increment branch"
     git switch develop >/dev/null
     git pull --ff-only origin develop
 
     if git show-ref --verify --quiet "refs/heads/$branch_name" || git ls-remote --exit-code --heads origin "$branch_name" >/dev/null 2>&1; then
-        echo "Branch $branch_name already exists but no open PR was found. Clean it up or resume manually." >&2
+        log_error "Branch $branch_name already exists but no open PR was found. Clean it up or resume manually."
         exit 1
     fi
 
+    log_info "Generating increment prompt with Gemini"
     gen_prompt_cmd=("$gen_prompt_script")
     if [[ -n "$increment_override" ]]; then
         gen_prompt_cmd+=(--increment "$increment_override")
@@ -652,35 +830,49 @@ else
         exit "$gen_prompt_status"
     fi
 
+    log_info "Creating branch $branch_name"
     git switch -c "$branch_name"
 
     initial_archived_prompt_path="$generated_dir_path/${increment_code}.md"
     initial_executor_prompt_path="$generated_dir_path/${increment_code}-executor-initial.md"
     build_initial_executor_prompt "$increment_code" "$increment_title" "$branch_name" "$initial_archived_prompt_path" "$initial_executor_prompt_path"
-    run_codex_exec "$initial_executor_prompt_path" "initial"
+    if ! run_codex_exec "$initial_executor_prompt_path" "initial"; then
+        log_error "Codex executor failed during the initial pass."
+        exit 1
+    fi
+    ensure_executor_produced_changes
+    run_host_validations "$increment_code" "initial"
+    commit_increment_changes "$increment_code" "$increment_title"
     push_branch_if_needed "$branch_name"
     ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
 fi
 
 cycle=1
 while (( cycle <= auto_max_cycles )); do
-    echo "Automation cycle $cycle/$auto_max_cycles for PR #$pr_number"
+    log_info "Automation cycle $cycle/$auto_max_cycles for PR #$pr_number"
 
     pr_checks_json_path="$generated_dir_path/${increment_code}-checks-cycle-${cycle}.json"
     if ! wait_for_pr_checks "$pr_number" "$pr_checks_json_path"; then
         pr_checks_status=$?
         if [[ "$pr_checks_status" -eq 2 ]]; then
-            echo "Stopping automation because PR #$pr_number did not report any checks." >&2
-            echo "Confirm that GitHub Actions is enabled and that the PR targets a branch with the expected workflow." >&2
+            log_error "Stopping automation because PR #$pr_number did not report any checks."
+            log_error "Confirm that GitHub Actions is enabled and that the PR targets a branch with the expected workflow."
             exit 1
         fi
 
         ci_correction_prompt_path="$generated_dir_path/${increment_code}-ci-correction-${cycle}.md"
         ci_followup_prompt_path="$generated_dir_path/${increment_code}-ci-followup-${cycle}.md"
 
+        log_warn "PR checks failed for PR #$pr_number. Building a CI correction prompt for Codex."
         build_ci_correction_prompt "$increment_code" "$branch_name" "$pr_number" "$increment_markdown" "$pr_checks_json_path" "$ci_correction_prompt_path"
         build_followup_executor_prompt "$increment_code" "$branch_name" "$ci_correction_prompt_path" "$ci_followup_prompt_path"
-        run_codex_exec "$ci_followup_prompt_path" "ci-fix-${cycle}"
+        if ! run_codex_exec "$ci_followup_prompt_path" "ci-fix-${cycle}"; then
+            log_error "Codex executor failed while addressing CI feedback."
+            exit 1
+        fi
+        ensure_executor_produced_changes
+        run_host_validations "$increment_code" "ci-fix-${cycle}"
+        commit_increment_changes "$increment_code" "$increment_title"
         push_branch_if_needed "$branch_name"
         ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
         cycle=$((cycle + 1))
@@ -690,9 +882,9 @@ while (( cycle <= auto_max_cycles )); do
     if "$review_script" -PrNumber "$pr_number"; then
         if is_true "$auto_merge_on_approval" && [[ "$no_merge" != "true" ]]; then
             "$merge_script" --yes -PrNumber "$pr_number"
-            echo "Increment $increment_code completed successfully."
+            log_info "Increment $increment_code completed successfully."
         else
-            echo "PR #$pr_number is approved and ready for merge."
+            log_info "PR #$pr_number is approved and ready for merge."
         fi
         exit 0
     else
@@ -706,17 +898,24 @@ while (( cycle <= auto_max_cycles )); do
     fi
 
     if [[ ! -s "$correction_prompt_path" ]]; then
-        echo "Review rejected the PR, but no correction prompt was generated." >&2
+        log_error "Review rejected the PR, but no correction prompt was generated."
         exit 1
     fi
 
     review_followup_prompt_path="$generated_dir_path/${increment_code}-review-followup-${cycle}.md"
+    log_warn "Gemini review rejected PR #$pr_number. Sending correction prompt back to Codex."
     build_followup_executor_prompt "$increment_code" "$branch_name" "$correction_prompt_path" "$review_followup_prompt_path"
-    run_codex_exec "$review_followup_prompt_path" "review-fix-${cycle}"
+    if ! run_codex_exec "$review_followup_prompt_path" "review-fix-${cycle}"; then
+        log_error "Codex executor failed while addressing review feedback."
+        exit 1
+    fi
+    ensure_executor_produced_changes
+    run_host_validations "$increment_code" "review-fix-${cycle}"
+    commit_increment_changes "$increment_code" "$increment_title"
     push_branch_if_needed "$branch_name"
     ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
     cycle=$((cycle + 1))
 done
 
-echo "Maximum automation cycles reached for $increment_code without approval." >&2
+log_error "Maximum automation cycles reached for $increment_code without approval."
 exit 1

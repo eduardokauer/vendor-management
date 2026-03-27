@@ -425,10 +425,12 @@ ensure_local_branch() {
 run_codex_exec() {
     local prompt_path="$1"
     local label="$2"
+    local parser_script_path
 
     last_codex_message_path="$generated_dir_path/${increment_code}-${label}-last-message.md"
     last_codex_events_path="$generated_dir_path/${increment_code}-${label}-events.jsonl"
     last_codex_prompt_archive_path="$generated_dir_path/${increment_code}-${label}-prompt.md"
+    parser_script_path="$(mktemp)"
 
     cp "$prompt_path" "$last_codex_prompt_archive_path"
 
@@ -448,7 +450,7 @@ run_codex_exec() {
     log_info "Raw Codex events: $last_codex_events_path"
     log_info "Last Codex message: $last_codex_message_path"
 
-    "${codex_cmd[@]}" - < "$prompt_path" | python3 -c '
+    cat <<'PY' > "$parser_script_path"
 import json
 import sys
 from datetime import datetime
@@ -465,7 +467,7 @@ def shorten(text, limit=140):
 
 
 def emit(message):
-    line = f"[{datetime.now().strftime(\"%Y-%m-%d %H:%M:%S\")}] [CODEX] {message}"
+    line = f'[{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}] [CODEX] {message}'
     print(line, flush=True)
     if human_log_path:
         with open(human_log_path, "a", encoding="utf-8") as handle:
@@ -488,37 +490,40 @@ with open(events_path, "w", encoding="utf-8") as raw_handle:
 
         if event_type == "item.started":
             if item_type == "command_execution":
-                emit(f"running command: {shorten(item.get(\"command\", \"\"))}")
+                emit(f'running command: {shorten(item.get("command", ""))}')
             elif item_type == "file_change":
                 changes = item.get("changes") or []
                 names = [change.get("path", "").split("/")[-1] for change in changes[:5] if change.get("path")]
                 suffix = "..." if len(changes) > 5 else ""
-                emit(f"editing files: {\", \".join(names)}{suffix}" if names else "editing files")
+                emit(f'editing files: {", ".join(names)}{suffix}' if names else "editing files")
             elif item_type == "agent_message":
                 emit(shorten(item.get("text", "")))
             elif item_type == "mcp_tool_call":
-                emit(f"calling tool: {item.get(\"tool\") or item.get(\"server\") or \"external tool\"}")
+                emit(f'calling tool: {item.get("tool") or item.get("server") or "external tool"}')
         elif event_type == "item.updated" and item_type == "todo_list":
             items = item.get("items") or []
             completed = sum(1 for todo in items if todo.get("completed"))
-            emit(f"updated plan: {completed}/{len(items)} items completed")
+            emit(f'updated plan: {completed}/{len(items)} items completed')
         elif event_type == "item.completed":
             if item_type == "command_execution":
                 exit_code = item.get("exit_code")
                 command = shorten(item.get("command", ""))
                 if exit_code == 0:
-                    emit(f"command completed: {command}")
+                    emit(f'command completed: {command}')
                 else:
-                    emit(f"command failed ({exit_code}): {command}")
+                    emit(f'command failed ({exit_code}): {command}')
             elif item_type == "agent_message":
                 emit(shorten(item.get("text", "")))
             elif item_type == "file_change":
                 emit("file edits completed")
             elif item_type == "mcp_tool_call":
-                emit(f"tool completed: {item.get(\"tool\") or item.get(\"server\") or \"external tool\"}")
+                emit(f'tool completed: {item.get("tool") or item.get("server") or "external tool"}')
         elif event_type == "turn.completed":
             emit("executor turn completed")
-' "$last_codex_events_path" "$orchestrator_log_path"
+PY
+
+    "${codex_cmd[@]}" - < "$prompt_path" | python3 "$parser_script_path" "$last_codex_events_path" "$orchestrator_log_path"
+    rm -f "$parser_script_path"
 
     log_info "Codex executor finished for $increment_code [$label]"
 }

@@ -38,7 +38,7 @@ Ordem de leitura recomendada:
 - **Ambiente local validado:**
   - SO de referencia validado: Ubuntu/Linux.
   - `docker compose up --build -d` sobe `postgres`, `backend-dev` e `frontend`.
-  - `docker compose --profile test run --rm backend-test` executa a suite backend.
+  - `docker compose --profile test run --rm backend-test` executa a suite backend usando o codigo atual montado de `./backend`, evitando validacao sobre imagem defasada.
   - Portas locais:
     - frontend: `http://localhost:5173`
     - backend: `http://localhost:3000`
@@ -46,7 +46,7 @@ Ordem de leitura recomendada:
 - **Servicos Compose atuais:**
   - `postgres`: banco de desenvolvimento e teste.
   - `backend-dev`: API Express em hot reload.
-  - `backend-test`: suite de testes backend em profile `test`.
+  - `backend-test`: suite de testes backend em profile `test`, montando `./backend` para refletir o estado atual do workspace durante a validacao.
   - `frontend`: app React/Vite em hot reload.
 - **Fluxo assistido por IA do projeto:**
   - `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` definem memoria e processo.
@@ -71,9 +71,17 @@ Ordem de leitura recomendada:
   - `POST /api/auth/login`
   - `GET /api/auth/me`
   - middleware JWT por bearer token
-- Endpoints protegidos de vendors existentes:
+  - autorizacao por papel para rotas que exigem `admin`
+- Endpoints de vendors existentes:
   - `GET /api/vendors`
   - `GET /api/vendors/:id`
+  - `POST /api/vendors`
+  - `PUT /api/vendors/:id`
+  - `DELETE /api/vendors/:id`
+- CRUD de vendors no backend concluido com:
+  - validacoes basicas de `name`, `contact_email` e `status`
+  - tratamento de erro para 400, 401, 403 e 404
+  - acesso restrito a usuarios com papel `admin`
 - Frontend com:
   - home page basica
   - login page com React Hook Form + Yup
@@ -82,6 +90,7 @@ Ordem de leitura recomendada:
 - Testes backend existentes:
   - conectividade com banco
   - fluxo basico de auth
+  - suite de integracao para CRUD de vendors cobrindo sucesso e erros principais
 - Teste frontend minimo existente:
   - login com persistencia de token
   - restauracao de sessao em rota protegida
@@ -96,11 +105,10 @@ Ordem de leitura recomendada:
   - o dashboard autenticado ainda e minimo e segue como placeholder para as proximas features apos login.
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
 - O frontend agora possui comando oficial de testes para auth/sessao, mas a cobertura ainda e localizada nesse fluxo.
-- `vendors` no backend so cobre leitura; CRUD completo nao existe.
+- A camada de vendors segue ausente no frontend, apesar de o backend ja expor o CRUD minimo completo.
 
 ### Ainda nao implementado
 
-- CRUD completo de vendors com validacoes e testes.
 - API de documentos com upload, download, versionamento e expiracao.
 - Calculo real de compliance baseado em documentos.
 - UI de gestao de vendors.
@@ -117,6 +125,7 @@ Ordem de leitura recomendada:
 - O backend retorna JWT no registro e no login.
 - Rotas protegidas usam header `Authorization: Bearer <token>`.
 - `GET /api/auth/me` e a referencia para obter o usuario autenticado no backend.
+- O CRUD de vendors deve permanecer restrito a usuarios com papel `admin`.
 
 ### Vendors
 
@@ -173,7 +182,7 @@ Ordem de leitura recomendada:
 
 - A jornada inicial de autenticacao frontend foi fechada, mas a cobertura automatizada de frontend ainda e pequena e concentrada em auth/sessao.
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
-- A camada de vendors esta incompleta no backend e ausente no frontend.
+- A camada de vendors agora esta fechada no backend, mas segue ausente no frontend.
 - A camada de documentos ainda existe apenas no schema, nao no fluxo funcional.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
@@ -209,27 +218,26 @@ Ordem de leitura recomendada:
 - **Objetivo do tema:** usar a autenticacao frontend ja fechada como base para entregar a primeira experiencia operacional real de vendors.
 - **Motivo da prioridade atual:**
   - a jornada de acesso e sessao do usuario foi fechada com bootstrap via `/api/auth/me`;
-  - o backend ja possui schema e endpoints protegidos iniciais para vendors;
-  - o maior gap funcional visivel agora esta na camada operacional de vendors, ainda incompleta no backend e ausente no frontend.
+  - o backend ja possui CRUD minimo de vendors protegido por JWT e papel `admin`;
+  - o maior gap funcional visivel agora esta na camada operacional de vendors no frontend.
 
 ### Estrutura de refinamento do tema ativo
 
 - **Epico 1:** CRUD minimo de vendors no backend
-  - Sair do estado atual de leitura apenas e fechar operacoes essenciais com validacoes e testes.
+  - Concluido com operacoes de criacao, leitura, atualizacao e remocao protegidas para `admin`, com validacoes basicas e testes.
 - **Epico 2:** UI autenticada minima para vendors
   - Entregar lista e navegacao basica de vendors apoiadas no fluxo de sessao ja estabilizado.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Completar CRUD de vendors no backend com testes.
+  - Entregar UI basica de vendors integrada a API.
 
 ### Backlog estrategico ordenado
 
-1. Completar CRUD de vendors no backend com testes.
-2. Entregar UI basica de vendors integrada a API.
-3. Implementar API de documentos e atualizacao de compliance.
-4. Entregar UI de documentos e status de compliance.
-5. Adicionar notificacoes e agendamento.
-6. Consolidar testes frontend/integracao e endurecer validacoes.
-7. Preparar deploy e CI/CD mais ampla.
+1. Entregar UI basica de vendors integrada a API.
+2. Implementar API de documentos e atualizacao de compliance.
+3. Entregar UI de documentos e status de compliance.
+4. Adicionar notificacoes e agendamento.
+5. Consolidar testes frontend/integracao e endurecer validacoes.
+6. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 
@@ -240,5 +248,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Completar CRUD de vendors no backend com testes.**
-- Essa passa a ser a melhor proxima entrega porque a base autenticada do frontend ja esta funcional e o principal gargalo de valor agora esta na camada operacional de vendors.
+- **Entregar UI basica de vendors integrada a API.**
+- Essa passa a ser a melhor proxima entrega porque o CRUD minimo de vendors ja esta fechado no backend e o principal gargalo visivel agora e a ausencia da experiencia operacional correspondente no frontend.

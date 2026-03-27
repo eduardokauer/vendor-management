@@ -51,7 +51,7 @@ Ordem de leitura recomendada:
 - **Fluxo assistido por IA do projeto:**
   - `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` definem memoria e processo.
   - `INCREMENTS.md` e a fila ordenada de incrementos.
-  - `scripts/gen_prompt.ps1`, `scripts/review_pr.ps1` e `scripts/merge_pr.ps1` orquestram o ciclo PM -> Codex -> review -> merge.
+  - `scripts/gen_prompt.sh`, `scripts/review_pr.sh` e `scripts/merge_pr.sh` orquestram o ciclo PM -> Codex -> review -> merge.
 
 ## 3. Estado Atual do Sistema
 
@@ -156,10 +156,10 @@ Ordem de leitura recomendada:
 ### Operacao assistida por IA
 
 - O desenvolvedor define o proximo incremento em `INCREMENTS.md`.
-- `scripts/gen_prompt.ps1` gera o prompt do Codex a partir do incremento pendente e do contexto atual.
+- `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente e do contexto atual.
 - O Codex implementa a entrega respeitando `docs/project_context.md` e `docs/codex_workflow.md`.
-- `scripts/review_pr.ps1` revisa o PR contra o objetivo, fora de escopo e DoD.
-- `scripts/merge_pr.ps1` faz squash merge em `develop` e marca o incremento como concluido.
+- `scripts/review_pr.sh` revisa o PR contra o objetivo, fora de escopo e DoD.
+- `scripts/merge_pr.sh` faz squash merge em `develop` e marca o incremento como concluido.
 
 ## 6. Riscos e Limitacoes Conhecidas
 
@@ -169,7 +169,7 @@ Ordem de leitura recomendada:
 - A camada de vendors esta incompleta no backend e ausente no frontend.
 - A camada de documentos ainda existe apenas no schema, nao no fluxo funcional.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
-- Para usar os scripts do framework em Linux ou macOS, PowerShell 7+ precisa estar instalado.
+- Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl` e `python3`.
 - `backend/.env` e `.env` na raiz tem papeis diferentes e nao devem ser confundidos.
 
 ## 7. Proximo Passo Atual e Sequencia Recomendada

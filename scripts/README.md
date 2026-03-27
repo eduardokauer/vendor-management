@@ -1,13 +1,15 @@
 # AI-assisted Development Pipeline for vendor-management
 
-This repository includes a lightweight framework to reduce the manual loop between planning, implementation, review and merge when working with AI. Instead of rebuilding prompts and review instructions every time, the project keeps a persistent memory of the product state, a clear backlog of increments and a small set of scripts that orchestrate the cycle.
+This repository includes a lightweight framework to reduce the manual loop between planning, implementation, review and merge when working with AI. Instead of rebuilding prompts and review instructions every time, the project keeps a persistent memory of the product state, a clear backlog of increments and a small set of shell scripts that orchestrate the cycle.
 
 The goal is to make the PM role explicit, keep Codex execution bounded by documented rules and make review repeatable against the original objective and DoD. The developer still decides what to build and when to merge, but the repetitive framing and review work becomes much faster and more consistent.
 
 ## Prerequisites
 
+- Bash-compatible terminal on Linux, macOS or WSL
 - GitHub CLI (`gh`): https://cli.github.com/
-- PowerShell 7+: https://learn.microsoft.com/powershell/scripting/install/installing-powershell
+- `curl`
+- `python3`
 - Gemini API key: https://aistudio.google.com/app/apikey
 - VS Code command line (`code`) is optional, but recommended if you want the scripts to open generated files automatically.
 
@@ -36,9 +38,9 @@ docs/pm_workflow.md
 docs/codex_workflow.md
 prompts/PROMPT_TEMPLATE.md
 INCREMENTS.md
-scripts/gen_prompt.ps1
-scripts/review_pr.ps1
-scripts/merge_pr.ps1
+scripts/gen_prompt.sh
+scripts/review_pr.sh
+scripts/merge_pr.sh
 .github/workflows/test.yml
 scripts/README.md
 ```
@@ -63,11 +65,11 @@ prompts/review_result.md
 ## How the pipeline works
 
 1. Update `INCREMENTS.md` with the next desired increment.
-2. Run `gen_prompt.ps1` to generate the next Codex prompt from the current project context and the first pending increment.
+2. Run `gen_prompt.sh` to generate the next Codex prompt from the current project context and the first pending increment.
 3. Review the generated prompt and send it to Codex.
 4. Let Codex implement the increment, validate the DoD, commit and open a PR against `develop`.
-5. Run `review_pr.ps1` to review the PR with Gemini against the original objective, out of scope and DoD.
-6. If the review is approved, run `merge_pr.ps1` to squash merge and mark the increment as completed.
+5. Run `review_pr.sh` to review the PR with Gemini against the original objective, out of scope and DoD.
+6. If the review is approved, run `merge_pr.sh` to squash merge and mark the increment as completed.
 
 ## Script usage
 
@@ -76,7 +78,7 @@ prompts/review_result.md
 Command:
 
 ```bash
-pwsh ./scripts/gen_prompt.ps1
+./scripts/gen_prompt.sh
 ```
 
 What it does:
@@ -96,13 +98,13 @@ Expected output:
 Command for the PR attached to the current branch:
 
 ```bash
-pwsh ./scripts/review_pr.ps1
+./scripts/review_pr.sh
 ```
 
 Command for a specific PR number:
 
 ```bash
-pwsh ./scripts/review_pr.ps1 -PrNumber 123
+./scripts/review_pr.sh -PrNumber 123
 ```
 
 What it does:
@@ -126,13 +128,13 @@ Expected review output:
 Command for the PR attached to the current branch:
 
 ```bash
-pwsh ./scripts/merge_pr.ps1
+./scripts/merge_pr.sh
 ```
 
 Command for a specific PR number:
 
 ```bash
-pwsh ./scripts/merge_pr.ps1 -PrNumber 123
+./scripts/merge_pr.sh -PrNumber 123
 ```
 
 What it does:
@@ -155,20 +157,20 @@ Important:
 3. Generate the prompt:
 
 ```bash
-pwsh ./scripts/gen_prompt.ps1
+./scripts/gen_prompt.sh
 ```
 
 4. Review `prompts/next_prompt.md` and send it to Codex.
 5. After Codex opens the PR, review it:
 
 ```bash
-pwsh ./scripts/review_pr.ps1
+./scripts/review_pr.sh
 ```
 
 6. If approved, merge it:
 
 ```bash
-pwsh ./scripts/merge_pr.ps1
+./scripts/merge_pr.sh
 ```
 
 7. Generate the next prompt and repeat the cycle.
@@ -198,6 +200,6 @@ docker compose --profile test run --rm backend-test
 - `gh CLI was not found in PATH`
   - Install GitHub CLI and ensure it is available in the shell running the script.
 - `prompts/next_prompt.md was not found`
-  - Run `pwsh ./scripts/gen_prompt.ps1` before `review_pr.ps1`.
+  - Run `./scripts/gen_prompt.sh` before `review_pr.sh`.
 - `Could not detect an INC-XXX code in the PR title`
   - Rename the PR title so it includes the increment code, for example `INC-001 Close frontend auth session flow`.

@@ -38,6 +38,25 @@ load_env_file() {
     done < "$env_path"
 }
 
+resolve_codex_bin() {
+    if [[ -n "${CODEX_BIN:-}" ]]; then
+        if [[ -x "${CODEX_BIN}" ]]; then
+            printf '%s' "${CODEX_BIN}"
+            return 0
+        fi
+
+        echo "CODEX_BIN is set but is not executable: ${CODEX_BIN}" >&2
+        return 1
+    fi
+
+    if command -v codex >/dev/null 2>&1; then
+        command -v codex
+        return 0
+    fi
+
+    return 1
+}
+
 is_true() {
     local value="${1:-false}"
     value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
@@ -91,10 +110,16 @@ check_command() {
 
 check_command git
 check_command gh
-check_command codex
 check_command curl
 check_command python3
 check_command docker
+
+if codex_bin="$(resolve_codex_bin)"; then
+    log_ok "Codex CLI available: $codex_bin"
+else
+    log_fail "Missing required Codex CLI. Add \`codex\` to PATH or set CODEX_BIN in the root .env."
+    failures=$((failures + 1))
+fi
 
 if command -v docker >/dev/null 2>&1; then
     if docker compose version >/dev/null 2>&1; then
@@ -165,6 +190,11 @@ fi
 
 codex_model="${CODEX_MODEL:-gpt-5.4}"
 codex_sandbox="${CODEX_SANDBOX:-workspace-write}"
+gemini_model="${GEMINI_MODEL:-gemini-2.5-flash}"
+log_ok "Gemini model configured as: $gemini_model"
+if [[ -n "${CODEX_BIN:-}" ]]; then
+    log_ok "Codex binary configured via CODEX_BIN: ${CODEX_BIN}"
+fi
 log_ok "Codex model configured as: $codex_model"
 log_ok "Codex sandbox configured as: $codex_sandbox"
 
@@ -173,7 +203,7 @@ if is_true "$deep_check"; then
         gemini_payload_file="$(mktemp)"
         gemini_response_file="$(mktemp)"
         cat > "$gemini_payload_file" <<'EOF'
-{"contents":[{"role":"user","parts":[{"text":"Respond with exactly OK."}]}],"generationConfig":{"temperature":0.1,"maxOutputTokens":16}}
+{"contents":[{"role":"user","parts":[{"text":"Respond with exactly OK."}]}],"generationConfig":{"temperature":0.1,"maxOutputTokens":64}}
 EOF
 
         gemini_http_code="$(
@@ -183,7 +213,7 @@ EOF
                 -X POST \
                 -H 'Content-Type: application/json' \
                 --data-binary "@$gemini_payload_file" \
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}"
+                "https://generativelanguage.googleapis.com/v1beta/models/${gemini_model}:generateContent?key=${GEMINI_KEY}"
         )" || gemini_http_code="000"
 
         if [[ "$gemini_http_code" =~ ^2[0-9][0-9]$ ]]; then
@@ -214,7 +244,7 @@ PY
     fi
 
     codex_tmp_output="$(mktemp)"
-    if printf 'Respond with exactly OK.' | codex exec -C "$repo_root" -s read-only -o "$codex_tmp_output" - >/dev/null 2>&1; then
+    if printf 'Respond with exactly OK.' | "$codex_bin" exec -C "$repo_root" -s read-only -o "$codex_tmp_output" - >/dev/null 2>&1; then
         codex_text="$(<"$codex_tmp_output")"
         if [[ "$(trim "$codex_text")" == "OK" ]]; then
             log_ok "Deep Codex check passed"

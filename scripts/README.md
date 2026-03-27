@@ -18,6 +18,7 @@ This repository now supports two operating modes:
 - `python3`
 - Gemini API key: https://aistudio.google.com/app/apikey
 - VS Code command line (`code`) is optional, but recommended if you want the scripts to open generated files automatically.
+- If `codex` is not available in your shell `PATH`, configure `CODEX_BIN` in the root `.env` with the absolute path to the Codex binary.
 
 ## Configure the root `.env`
 
@@ -27,6 +28,9 @@ Example:
 
 ```env
 GEMINI_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+# Optional when `codex` is not in PATH
+# CODEX_BIN=/absolute/path/to/codex
 CODEX_MODEL=gpt-5.4
 CODEX_SANDBOX=workspace-write
 CODEX_DANGEROUS_BYPASS=false
@@ -103,6 +107,7 @@ cp .env.example .env
 ```
 
 2. Fill in `GEMINI_KEY`.
+   If your project is provisioned for a different Gemini model, set `GEMINI_MODEL` explicitly in the root `.env`.
 3. Validate local prerequisites:
 
 ```bash

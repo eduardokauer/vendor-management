@@ -38,6 +38,26 @@ load_env_file() {
     done < "$env_path"
 }
 
+resolve_codex_bin() {
+    if [[ -n "${CODEX_BIN:-}" ]]; then
+        if [[ -x "${CODEX_BIN}" ]]; then
+            printf '%s' "${CODEX_BIN}"
+            return 0
+        fi
+
+        echo "CODEX_BIN is set but is not executable: ${CODEX_BIN}" >&2
+        exit 1
+    fi
+
+    if command -v codex >/dev/null 2>&1; then
+        command -v codex
+        return 0
+    fi
+
+    echo "Required Codex CLI not found. Add \`codex\` to PATH or set CODEX_BIN in the root .env." >&2
+    exit 1
+}
+
 require_command() {
     local command_name="$1"
     if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -268,7 +288,7 @@ run_codex_exec() {
 
     cp "$prompt_path" "$last_codex_prompt_archive_path"
 
-    codex_cmd=(codex exec -C "$repo_root" --json -o "$last_codex_message_path")
+    codex_cmd=("$codex_bin" exec -C "$repo_root" --json -o "$last_codex_message_path")
     if [[ -n "$codex_model" ]]; then
         codex_cmd+=(-m "$codex_model")
     fi
@@ -431,9 +451,10 @@ load_env_file "$root_env_path"
 
 require_command git
 require_command gh
-require_command codex
 require_command python3
 require_command curl
+
+codex_bin="$(resolve_codex_bin)"
 
 "$check_setup_script"
 

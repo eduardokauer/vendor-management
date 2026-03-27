@@ -51,6 +51,7 @@ invoke_gemini_prompt() {
     local prompt_file="$2"
     local temperature="$3"
     local max_output_tokens="$4"
+    local model_name="$5"
     local payload_file response_file http_code
 
     payload_file="$(mktemp)"
@@ -89,7 +90,7 @@ PY
             -X POST \
             -H 'Content-Type: application/json' \
             --data-binary "@$payload_file" \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$api_key"
+            "https://generativelanguage.googleapis.com/v1beta/models/${model_name}:generateContent?key=$api_key"
     )"; then
         local body
         body="$(<"$response_file")"
@@ -180,6 +181,8 @@ if [[ -z "$gemini_key" ]]; then
     echo "GEMINI_KEY is not defined. Set it in the environment or in the root .env file." >&2
     exit 1
 fi
+
+gemini_model="${GEMINI_MODEL:-gemini-2.5-flash}"
 
 pr_json_file="$(mktemp)"
 diff_file="$(mktemp)"
@@ -315,7 +318,7 @@ $pr_diff
 EOF
 } > "$review_prompt_file"
 
-review_text="$(invoke_gemini_prompt "$gemini_key" "$review_prompt_file" 0.2 4096)"
+review_text="$(invoke_gemini_prompt "$gemini_key" "$review_prompt_file" 0.2 4096 "$gemini_model")"
 printf '%s\n' "$review_text" > "$output_path"
 
 rm -f "$pr_json_file" "$diff_file" "$review_prompt_file"

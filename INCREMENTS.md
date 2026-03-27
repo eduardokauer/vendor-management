@@ -1,6 +1,6 @@
 # INCREMENTS
 
-- [ ] **INC-001** Fechar fluxo de autenticacao frontend com persistencia de sessao
+- [x] **INC-001** Fechar fluxo de autenticacao frontend com persistencia de sessao
   - Reconstruir a sessao no frontend a partir do token salvo, carregar o usuario autenticado com `GET /api/auth/me` e proteger a navegacao com base no estado real da sessao.
   - Ajustar o fluxo de login/logout para que a experiencia minima autenticada fique consistente apos refresh, expiracao de token e inicializacao da aplicacao.
   - Fora de escopo: implementar cadastro publico, gestao de vendors, documentos, redesign visual amplo ou novas regras de negocio de auth no backend.

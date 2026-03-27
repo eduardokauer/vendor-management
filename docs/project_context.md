@@ -2,7 +2,7 @@
 
 ## Papel deste arquivo
 
-`docs/project_context.md` e a fonte de verdade viva do projeto. Ele registra o contexto do produto, o estado atual do sistema, as decisoes ja fechadas, a operacao atual, as limitacoes reais e a ordem recomendada das proximas iteracoes.
+`docs/project_context.md` e a fonte de verdade viva do projeto. Ele registra o contexto do produto, o estado atual do sistema, as decisoes ja fechadas, a operacao atual, as limitacoes reais e o roadmap vigente do produto.
 
 Arquivos complementares:
 - `docs/pm_workflow.md`: regras da LLM que atua como PM/guia.
@@ -179,17 +179,46 @@ Ordem de leitura recomendada:
 - `backend/.env` e `.env` na raiz tem papeis diferentes e nao devem ser confundidos.
 - O fluxo de review e merge depende de o titulo do PR conter `INC-XXX` e de o trabalho seguir um incremento por vez.
 
-## 7. Proximo Passo Atual e Sequencia Recomendada
+## 7. Roadmap do Produto
 
-### Proximo incremento recomendado agora
+### Como ler o roadmap
 
-- **Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.**
-- Motivo:
+- Este roadmap e leve e serve para orientar o ciclo PM -> Codex -> review -> merge sem transformar o processo em burocracia.
+- `Tema ativo` indica a frente principal que deve guiar o proximo refinamento e os proximos prompts.
+- `Frentes de evolucao` organizam o produto em blocos funcionais maiores do que um incremento isolado.
+- `INCREMENTS.md` continua sendo a fila operacional de fatias prontas para execucao.
+- O PM nao deve mandar o Codex implementar diretamente uma frente ampla ou um tema ainda ambiguo; o handoff deve acontecer no nivel de incremento executavel.
+
+### Frentes de evolucao
+
+1. **Acesso e sessao do usuario**
+   - Consolidar autenticacao funcional no frontend e garantir a primeira experiencia ponta a ponta do usuario autenticado.
+2. **Gestao operacional de vendors**
+   - Completar a camada de vendors no backend e entregar a primeira UI operacional correspondente.
+3. **Documentos e compliance**
+   - Transformar o schema existente em fluxo funcional de documentos, expiracao e status de compliance.
+4. **Operacao assistida e robustez**
+   - Endurecer validacoes, automacoes, testes mais amplos, notificacoes e pipeline de entrega.
+
+### Tema ativo do roadmap
+
+- **Tema ativo:** Acesso e sessao do usuario
+- **Objetivo do tema:** fechar a primeira jornada funcional real do frontend autenticado antes de ampliar escopo para vendors e documentos.
+- **Motivo da prioridade atual:**
   - a base de backend e auth ja existe;
-  - o frontend ja tem login e dashboard basicos, entao falta consolidar a primeira experiencia funcional completa do usuario;
-  - isso entrega valor visivel antes de avancar para vendors e documentos.
+  - o frontend ja possui login, `AuthContext` e dashboard protegido, mas a sessao ainda nao e robusta;
+  - sem essa base, os proximos incrementos de vendors e documentos ficam mais caros de validar ponta a ponta.
 
-### Sequencia recomendada de incrementos
+### Estrutura de refinamento do tema ativo
+
+- **Epico 1:** Persistencia e bootstrap de sessao no frontend
+  - Reconstruir sessao com base no token existente e em `GET /api/auth/me`.
+- **Epico 2:** Navegacao autenticada minima e estado confiavel
+  - Garantir que login, logout, protecao de rota e dashboard reflitam o estado real da sessao.
+- **Primeira fatia pronta para execucao recomendada:**
+  - Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.
+
+### Backlog estrategico ordenado
 
 1. Fechar autenticacao frontend com sessao persistente e bootstrap do usuario.
 2. Completar CRUD de vendors no backend com testes.
@@ -199,3 +228,15 @@ Ordem de leitura recomendada:
 6. Adicionar notificacoes e agendamento.
 7. Consolidar testes frontend/integracao e endurecer validacoes.
 8. Preparar deploy e CI/CD mais ampla.
+
+### Regra de governanca do roadmap
+
+- `docs/project_context.md` deve registrar tema ativo, frentes e ordem estrategica.
+- `INCREMENTS.md` deve refletir apenas incrementos executaveis ou quase executaveis.
+- Se um item do backlog ainda estiver amplo demais para virar prompt tecnico, ele deve ser refinado antes do handoff ao Codex.
+- Se o tema ativo mudar, `docs/project_context.md` deve ser atualizado no mesmo PR que formalizar essa mudanca.
+
+### Proximo passo recomendado
+
+- **Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.**
+- Essa ainda e a melhor proxima entrega porque fecha a jornada basica do usuario e cria base confiavel para os incrementos de vendors e documentos.

@@ -41,6 +41,14 @@ Leitura obrigatoria antes de atuar:
     - encoding;
     - BOM;
     - formatacao.
+19. Sempre admitir ciclos leves de refinamento antes de gerar prompt de execucao quando o tema ainda estiver acima do nivel de entrega tecnica.
+20. Sempre estruturar esse refinamento, quando necessario, na ordem:
+    - tema ativo;
+    - epico;
+    - historia ou fatia funcional menor;
+    - fatia pronta para execucao.
+21. Sempre tratar epico como objetivo amplo e a fatia pronta para execucao como unidade real de handoff ao Codex.
+22. So gerar prompt para o Codex quando a entrega ja estiver pronta para execucao.
 
 ## Como Definir o Proximo Passo
 
@@ -52,10 +60,33 @@ Leitura obrigatoria antes de atuar:
 - Evitar misturar feature, refactor e reorganizacao documental no mesmo PR sem necessidade.
 - Nao antecipar etapas que dependem de base ainda nao estabilizada.
 - Usar `docs/project_context.md` para identificar o proximo passo atual recomendado e validar se o pedido esta alinhado com ele e com o valor funcional esperado.
+- Se o proximo item ainda estiver amplo demais para um PR seguro e revisavel, refina-lo antes do handoff em vez de empurrar ambiguidade para o executor.
+
+## Como Refinar Antes do Handoff
+
+- Usar refinamento de forma objetiva, como ferramenta para melhorar a qualidade do prompt, e nao como camada extra de burocracia.
+- Partir do tema ativo registrado em `docs/project_context.md` quando a conversa ainda estiver em nivel de direcao de produto.
+- Quebrar o tema em epicos quando houver mais de um objetivo amplo relevante dentro da mesma frente.
+- Quebrar o epico em historias ou fatias funcionais menores quando ja for possivel explicitar valor entregue em etapas revisaveis.
+- So transformar uma fatia em prompt do Codex quando ela ja puder ser descrita como pronta para execucao.
+- Nao mandar o Codex implementar diretamente um tema amplo, uma frente inteira ou um epico ainda ambiguo.
+
+### O que significa "pronta para execucao"
+
+Uma fatia esta pronta para execucao quando ja tem:
+- objetivo claro;
+- valor funcional explicito;
+- fora de escopo claro;
+- decisoes relevantes preservadas;
+- criterios verificaveis via DoD;
+- dependencias principais resolvidas ou explicitadas;
+- tamanho compativel com um PR seguro, revisavel e testavel.
 
 ## Como Montar o Prompt para o Codex
 
 Todo prompt deve deixar explicito:
+- de qual tema ativo, epico ou frente a entrega deriva, quando esse contexto existir;
+- qual e a fatia pronta para execucao que sera entregue;
 - quais arquivos o Codex deve ler por padrao:
   - `docs/project_context.md`;
   - `docs/codex_workflow.md`;
@@ -73,6 +104,7 @@ Todo prompt deve deixar explicito:
 - a exigencia de testes;
 - a exigencia de atualizacao de documentacao/contexto/processo;
 - que ajustes estruturais necessarios devem servir a entrega principal do mesmo PR, e nao substitui-la;
+- que o prompt so esta sendo emitido porque a fatia ja esta pronta para execucao;
 - quais arquivos precisam ser atualizados naquele trabalho, quando aplicavel, evitando instrucoes vagas como "atualize a documentacao se necessario";
 - o mapeamento esperado para atualizacao de arquivos:
   - feature, estado ou decisao mudou -> atualizar `docs/project_context.md`;
@@ -130,16 +162,18 @@ Antes de enviar um prompt ao Codex, confirmar que ele inclui:
 3. Instrucao explicita de que esses arquivos devem ser seguidos durante toda a execucao e prevalecem sobre suposicoes locais conflitantes.
 4. Objetivo do PR.
 5. Valor funcional esperado da etapa.
-6. Fora de escopo.
-7. Decisoes ja fechadas relevantes.
-8. DoD explicito.
-9. Exigencia de testes.
-10. Exigencia de atualizacao de documentacao/contexto/processo quando aplicavel.
-11. Indicacao explicita de quais arquivos precisam ser atualizados naquele PR, quando aplicavel.
-12. Indicacao de que ajustes estruturais necessarios devem sustentar a entrega principal do mesmo PR.
-13. Formato esperado da entrega final do Codex.
-14. Exigencia de higiene final.
-15. Regra de commit + PR so no final.
+6. Tema ativo, epico ou frente de origem, quando aplicavel.
+7. Fatia pronta para execucao explicitada.
+8. Fora de escopo.
+9. Decisoes ja fechadas relevantes.
+10. DoD explicito.
+11. Exigencia de testes.
+12. Exigencia de atualizacao de documentacao/contexto/processo quando aplicavel.
+13. Indicacao explicita de quais arquivos precisam ser atualizados naquele PR, quando aplicavel.
+14. Indicacao de que ajustes estruturais necessarios devem sustentar a entrega principal do mesmo PR.
+15. Formato esperado da entrega final do Codex.
+16. Exigencia de higiene final.
+17. Regra de commit + PR so no final.
 
 ### Formato esperado da entrega final do Codex
 

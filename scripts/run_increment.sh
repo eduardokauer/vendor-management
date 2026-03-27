@@ -477,8 +477,8 @@ wait_for_pr_checks() {
         fi
 
         if (( attempt == auto_check_discovery_attempts )); then
-            echo "No PR checks reported for PR #$pr_number after waiting. Continuing without CI gating."
-            return 0
+            echo "No PR checks reported for PR #$pr_number after waiting. Failing closed before review/merge." >&2
+            return 2
         fi
 
         echo "No PR checks reported for PR #$pr_number yet. Waiting ${auto_check_interval}s..."
@@ -668,6 +668,13 @@ while (( cycle <= auto_max_cycles )); do
 
     pr_checks_json_path="$generated_dir_path/${increment_code}-checks-cycle-${cycle}.json"
     if ! wait_for_pr_checks "$pr_number" "$pr_checks_json_path"; then
+        pr_checks_status=$?
+        if [[ "$pr_checks_status" -eq 2 ]]; then
+            echo "Stopping automation because PR #$pr_number did not report any checks." >&2
+            echo "Confirm that GitHub Actions is enabled and that the PR targets a branch with the expected workflow." >&2
+            exit 1
+        fi
+
         ci_correction_prompt_path="$generated_dir_path/${increment_code}-ci-correction-${cycle}.md"
         ci_followup_prompt_path="$generated_dir_path/${increment_code}-ci-followup-${cycle}.md"
 

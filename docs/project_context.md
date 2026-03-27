@@ -160,7 +160,7 @@ Ordem de leitura recomendada:
 - O desenvolvedor define o proximo incremento em `INCREMENTS.md`.
 - `scripts/check_setup.sh` verifica pre-requisitos locais como `gh`, `codex`, Docker, Git e `GEMINI_KEY`.
 - `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente, salva `prompts/next_prompt.md` e arquiva uma copia vinculada ao `INC-XXX`.
-- `scripts/run_increment.sh` pode executar o ciclo automatizado: gerar prompt, criar/reusar branch, chamar o Codex em batch, abrir/atualizar PR, aguardar checks, pedir review ao Gemini, reenviar correcao ao Codex se necessario e mergear quando aprovado.
+- `scripts/run_increment.sh` pode executar o ciclo automatizado: gerar prompt, criar/reusar branch, chamar o Codex em batch, abrir/atualizar PR, aguardar checks obrigatorios, pedir review ao Gemini, reenviar correcao ao Codex se necessario e mergear quando aprovado.
 - Se o Gemini bater limite diario de requests, `scripts/run_increment.sh` agenda retomada automatica via `scripts/resume_pending.sh` e `crontab`.
 - `scripts/review_pr.sh` tambem pode ser usado de forma isolada para revisar o PR contra o objetivo, fora de escopo e DoD usando o prompt arquivado do incremento.
 - `scripts/merge_pr.sh` tambem pode ser usado de forma isolada para fazer squash merge em `develop` e marcar o incremento como concluido via GitHub API.

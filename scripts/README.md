@@ -107,6 +107,7 @@ prompts/generated/
 2. Choose either step-by-step execution or one-command orchestration.
 3. In step-by-step mode, run `gen_prompt.sh`, then let Codex implement the increment, then use `review_pr.sh` and `merge_pr.sh`.
 4. In orchestrated mode, run `run_increment.sh`, which generates the prompt, executes Codex, opens or updates the PR, waits for checks, asks Gemini for review, sends correction prompts back to Codex when needed and merges on approval.
+   If no PR checks are reported after the configured wait window, the orchestrator stops instead of continuing without CI.
 5. If Gemini daily quota is exhausted during orchestration, `run_increment.sh` writes a pending resume state and installs a user cron entry that polls until the next daily reset window is reached, then relaunches the increment automatically.
 
 ## Quick start for autonomous mode
@@ -218,6 +219,7 @@ What it does:
 - runs the local Codex CLI in non-interactive mode
 - opens or updates the PR against `develop`
 - waits for GitHub checks to appear and finish
+- fails closed if no GitHub checks are reported for the PR after the configured discovery window
 - asks Gemini to review the PR against the archived prompt
 - if Gemini rejects the PR, stores a correction prompt and sends it back to Codex
 - if Gemini hits short-lived API limits, retries automatically based on `RetryInfo` or fallback wait values
@@ -393,3 +395,5 @@ docker compose --profile test run --rm backend-test
   - Commit, stash or discard local changes before starting the autonomous loop.
 - `run_increment.sh` keeps waiting for checks
   - Confirm the PR targets `develop` or `main` and that GitHub Actions is enabled for the repository.
+- `No PR checks reported for PR #... after waiting`
+  - The orchestrator now stops before review or merge when no checks appear. Confirm that GitHub Actions is enabled, the workflow file is present on the PR branch, and the PR targets the expected base branch.

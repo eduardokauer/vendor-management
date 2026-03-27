@@ -10,12 +10,17 @@ require_command() {
 }
 
 pr_number=""
+assume_yes="false"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -PrNumber|--pr-number)
             [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
             pr_number="$2"
             shift 2
+            ;;
+        --yes)
+            assume_yes="true"
+            shift
             ;;
         *)
             echo "Unknown argument: $1" >&2
@@ -64,11 +69,15 @@ fi
 
 increment_code="${BASH_REMATCH[1]}"
 
-read -r -p "Proceed with squash merge and delete branch? [y/N] " confirmation
-if [[ "$confirmation" != "y" && "$confirmation" != "Y" && "$confirmation" != "yes" && "$confirmation" != "YES" ]]; then
-    rm -f "$pr_json_file"
-    echo "Merge cancelled by user." >&2
-    exit 1
+if [[ "$assume_yes" != "true" ]]; then
+    read -r -p "Proceed with squash merge and delete branch? [y/N] " confirmation
+    if [[ "$confirmation" != "y" && "$confirmation" != "Y" && "$confirmation" != "yes" && "$confirmation" != "YES" ]]; then
+        rm -f "$pr_json_file"
+        echo "Merge cancelled by user." >&2
+        exit 1
+    fi
+else
+    echo "Auto-confirm enabled via --yes"
 fi
 
 gh pr merge "$resolved_pr_number" --squash --delete-branch

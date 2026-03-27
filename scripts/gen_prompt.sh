@@ -179,6 +179,21 @@ open_in_vscode() {
     fi
 }
 
+increment_override=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --increment)
+            [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+            increment_override="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
+    esac
+done
+
 require_command python3
 require_command curl
 
@@ -199,8 +214,73 @@ if [[ -z "$gemini_key" ]]; then
     exit 1
 fi
 
-if ! next_increment_json="$(get_next_increment_json "$increments_path")"; then
-    echo "No pending increment found in INCREMENTS.md." >&2
+if [[ -n "$increment_override" ]]; then
+    if increment_lookup_output="$(
+        python3 - "$increments_path" "$increment_override" <<'PY'
+import json
+import re
+import sys
+
+path = sys.argv[1]
+requested = sys.argv[2]
+with open(path, encoding="utf-8") as handle:
+    lines = handle.read().splitlines()
+
+start = None
+status = None
+code = None
+title = None
+
+for index, line in enumerate(lines):
+    match = re.match(r"^- \[([ x>])\] \*\*(INC-\d{3})\*\* (.+)$", line)
+    if not match:
+        continue
+    status, code, title = match.groups()
+    if code == requested:
+        start = index
+        break
+
+if start is None:
+    print("NOT_FOUND", file=sys.stderr)
+    raise SystemExit(1)
+
+if status == "x":
+    print("COMPLETED", file=sys.stderr)
+    raise SystemExit(2)
+
+block = []
+for line in lines[start:]:
+    if block and re.match(r"^- \[[ x>]\] \*\*INC-\d{3}\*\* ", line):
+        break
+    block.append(line)
+
+print(json.dumps({
+    "code": code,
+    "title": title.strip(),
+    "status": status,
+    "markdown": "\n".join(block),
+}, ensure_ascii=False))
+PY
+    2>&1 )"; then
+        next_increment_json="$increment_lookup_output"
+    else
+        increment_lookup_status=$?
+        if [[ "$increment_lookup_output" == *"COMPLETED"* ]]; then
+            echo "Increment $increment_override is already completed in INCREMENTS.md." >&2
+        else
+            echo "Increment $increment_override was not found in INCREMENTS.md." >&2
+        fi
+        exit 1
+    fi
+else
+    if ! next_increment_json="$(get_next_increment_json "$increments_path")"; then
+        echo "No pending increment found in INCREMENTS.md." >&2
+        exit 1
+    fi
+fi
+
+if [[ -z "${next_increment_json:-}" ]]; then
+    echo "Unable to resolve increment data from INCREMENTS.md." >&2
     exit 1
 fi
 

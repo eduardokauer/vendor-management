@@ -54,6 +54,14 @@ jobs:
       - name: Install backend dependencies
         run: npm ci
 
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Enable uuid-ossp extension
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d vms_test -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
+
       - name: Run Knex migrations
         run: npx knex migrate:latest --env test
 

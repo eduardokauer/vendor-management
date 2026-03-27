@@ -170,6 +170,7 @@ root_env_path="$repo_root/.env"
 project_context_path="$repo_root/docs/project_context.md"
 pm_workflow_path="$repo_root/docs/pm_workflow.md"
 output_path="$repo_root/prompts/review_result.md"
+correction_output_path="$repo_root/prompts/correction_prompt.md"
 generated_dir_path="$repo_root/prompts/generated"
 
 load_env_file "$root_env_path"
@@ -324,11 +325,43 @@ open_in_vscode "$output_path"
 
 first_line="$(head -n 1 "$output_path" | tr -d '\r')"
 if [[ "$first_line" == "STATUS: APROVADO" ]]; then
+    rm -f "$correction_output_path"
     echo "Review status: APROVADO"
     exit 0
 fi
 
 if [[ "$first_line" == "STATUS: REPROVADO" ]]; then
+    mkdir -p "$generated_dir_path"
+
+    correction_text="$(
+        python3 - "$output_path" <<'PY'
+import re
+import sys
+
+path = sys.argv[1]
+text = open(path, encoding="utf-8").read()
+match = re.search(
+    r"^## Prompt de correcao para o Codex\s*\n(.*?)(?=^## |\Z)",
+    text,
+    flags=re.MULTILINE | re.DOTALL,
+)
+
+if match:
+    print(match.group(1).strip())
+PY
+    )"
+
+    if [[ -n "$correction_text" ]]; then
+        correction_archive_path="$generated_dir_path/${increment_code}-correction-$(date +%Y%m%d%H%M%S).md"
+        printf '%s\n' "$correction_text" > "$correction_output_path"
+        printf '%s\n' "$correction_text" > "$correction_archive_path"
+        echo "Correction prompt saved to $correction_output_path"
+        echo "Archived correction prompt to $correction_archive_path"
+    else
+        rm -f "$correction_output_path"
+        echo "Review status is REPROVADO, but no correction prompt section was found." >&2
+    fi
+
     echo "Review status: REPROVADO"
     exit 1
 fi

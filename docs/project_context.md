@@ -51,7 +51,9 @@ Ordem de leitura recomendada:
 - **Fluxo assistido por IA do projeto:**
   - `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` definem memoria e processo.
   - `INCREMENTS.md` e a fila ordenada de incrementos.
-  - `scripts/gen_prompt.sh`, `scripts/review_pr.sh` e `scripts/merge_pr.sh` orquestram o ciclo PM -> Codex -> review -> merge.
+  - `scripts/check_setup.sh` valida o ambiente local do pipeline.
+  - `scripts/gen_prompt.sh`, `scripts/review_pr.sh` e `scripts/merge_pr.sh` cobrem as etapas isoladas do ciclo PM -> Codex -> review -> merge.
+  - `scripts/run_increment.sh` e o orquestrador de ponta a ponta que usa Gemini como PM/revisor e o CLI do Codex como executor tecnico nao interativo.
 
 ## 3. Estado Atual do Sistema
 
@@ -156,10 +158,11 @@ Ordem de leitura recomendada:
 ### Operacao assistida por IA
 
 - O desenvolvedor define o proximo incremento em `INCREMENTS.md`.
+- `scripts/check_setup.sh` verifica pre-requisitos locais como `gh`, `codex`, Docker, Git e `GEMINI_KEY`.
 - `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente, salva `prompts/next_prompt.md` e arquiva uma copia vinculada ao `INC-XXX`.
-- O Codex implementa a entrega respeitando `docs/project_context.md` e `docs/codex_workflow.md`.
-- `scripts/review_pr.sh` revisa o PR contra o objetivo, fora de escopo e DoD usando o prompt arquivado do incremento.
-- `scripts/merge_pr.sh` faz squash merge em `develop` e marca o incremento como concluido via GitHub API.
+- `scripts/run_increment.sh` pode executar o ciclo automatizado: gerar prompt, criar/reusar branch, chamar o Codex em batch, abrir/atualizar PR, aguardar checks, pedir review ao Gemini, reenviar correcao ao Codex se necessario e mergear quando aprovado.
+- `scripts/review_pr.sh` tambem pode ser usado de forma isolada para revisar o PR contra o objetivo, fora de escopo e DoD usando o prompt arquivado do incremento.
+- `scripts/merge_pr.sh` tambem pode ser usado de forma isolada para fazer squash merge em `develop` e marcar o incremento como concluido via GitHub API.
 
 ## 6. Riscos e Limitacoes Conhecidas
 
@@ -169,7 +172,8 @@ Ordem de leitura recomendada:
 - A camada de vendors esta incompleta no backend e ausente no frontend.
 - A camada de documentos ainda existe apenas no schema, nao no fluxo funcional.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
-- Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl` e `python3`.
+- Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
+- A automacao ponta a ponta depende de o CLI do Codex estar disponivel localmente e autenticado para execucao nao interativa.
 - `backend/.env` e `.env` na raiz tem papeis diferentes e nao devem ser confundidos.
 - O fluxo de review e merge depende de o titulo do PR conter `INC-XXX` e de o trabalho seguir um incremento por vez.
 

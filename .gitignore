@@ -16,6 +16,7 @@ out/
 .env.production.local
 prompts/next_prompt.md
 prompts/review_result.md
+prompts/correction_prompt.md
 prompts/generated/
 
 # Logs

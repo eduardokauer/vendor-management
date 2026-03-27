@@ -108,6 +108,7 @@ Se qualquer um desses pontos falhar, o trabalho ainda nao esta finalizado.
 
 - Nova interacao com novo objetivo ou novo PR deve, por padrao, comecar em **branch nova**.
 - O Codex so deve reutilizar a branch atual quando estiver claramente continuando o **mesmo PR ainda aberto**.
+- Se um contexto de automacao explicitar que a branch e o PR ja existem, o Codex deve reutiliza-los exatamente como informado e nao criar paralelos.
 - Se o PR anterior da branch ja tiver sido mergeado ou fechado, o Codex nao deve tratar a branch local como continuacao automatica de trabalho.
 - Se a branch remota ja tiver sido apagada apos merge, o Codex deve assumir que o ciclo anterior terminou e criar uma branch nova para a nova entrega.
 - Branch mergeada e removida no remoto deve, em regra, ser removida localmente tambem depois de trocar para a base correta e sincronizar o repositorio.

@@ -5,7 +5,7 @@
   - Ajustar o fluxo de login/logout para que a experiencia minima autenticada fique consistente apos refresh, expiracao de token e inicializacao da aplicacao.
   - Fora de escopo: implementar cadastro publico, gestao de vendors, documentos, redesign visual amplo ou novas regras de negocio de auth no backend.
 
-- [ ] **INC-002** Completar CRUD de vendors no backend com testes
+- [x] **INC-002** Completar CRUD de vendors no backend com testes
   - Implementar criacao, atualizacao e remocao de vendors com validacoes basicas coerentes com o schema atual e cobrindo os principais cenarios de erro.
   - Expandir a suite backend para cobrir o fluxo protegido de vendors alem dos endpoints de leitura ja existentes.
   - Fora de escopo: pagina de vendors no frontend, documentos, paginacao avancada, busca complexa ou compliance automatica.

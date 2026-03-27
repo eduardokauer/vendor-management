@@ -320,6 +320,11 @@ if [[ ! -f "$prompt_source_path" ]]; then
 fi
 
 original_prompt="$(<"$prompt_source_path")"
+latest_host_validation_log_path="$(ls -t "$generated_dir_path"/${increment_code}-*-host-validation.log 2>/dev/null | head -n 1 || true)"
+host_validation_log=""
+if [[ -n "$latest_host_validation_log_path" && -f "$latest_host_validation_log_path" ]]; then
+    host_validation_log="$(<"$latest_host_validation_log_path")"
+fi
 
 {
     cat <<'EOF'
@@ -338,6 +343,7 @@ Regras da resposta:
 4. Nao mascare falhas: se houver falta de evidencia, marque como reprovado.
 5. Se reprovar, gere no final um prompt de correcao pronto para o Codex.
 6. Se aprovar, diga explicitamente por que o PR esta pronto para merge.
+7. Quando houver log de validacao do host, use esse log como fonte de verdade para as validacoes obrigatorias; limitacoes do sandbox do Codex no body do PR nao invalidam um PR por si so.
 
 Formato esperado:
 STATUS: APROVADO|REPROVADO
@@ -388,6 +394,20 @@ EOF
 
 $pr_body
 
+EOF
+    if [[ -n "$host_validation_log" ]]; then
+        cat <<EOF
+## Log de validacao do host
+
+Fonte de verdade para as validacoes obrigatorias executadas fora do sandbox do Codex.
+
+\`\`\`text
+$host_validation_log
+\`\`\`
+
+EOF
+    fi
+    cat <<EOF
 ## Diff do PR
 
 $pr_diff
@@ -437,8 +457,37 @@ PY
         echo "Correction prompt saved to $correction_output_path"
         echo "Archived correction prompt to $correction_archive_path"
     else
-        rm -f "$correction_output_path"
-        echo "Review status is REPROVADO, but no correction prompt section was found." >&2
+        fallback_prompt_file="$(mktemp)"
+        {
+            cat <<EOF
+Voce atuou como PM revisor e reprovou o PR $resolved_pr_number do incremento $increment_code, mas a secao "## Prompt de correcao para o Codex" nao veio preenchida.
+
+Com base no review abaixo, gere somente um prompt de correcao pronto para o Codex, em Markdown, sem explicacoes adicionais.
+
+Regras:
+- Foco apenas nas correcoes necessarias para aprovar o PR atual.
+- Nao peca para refazer o que ja esta aprovado.
+- Inclua objetivo, fora de escopo, arquivos a ajustar, validacoes obrigatorias e criterio de pronto.
+
+## Review existente
+
+EOF
+            cat "$output_path"
+        } > "$fallback_prompt_file"
+
+        correction_text="$(invoke_gemini_prompt "$gemini_key" "$fallback_prompt_file" 0.2 2048 "$gemini_model" || true)"
+        rm -f "$fallback_prompt_file"
+
+        if [[ -n "$correction_text" ]]; then
+            correction_archive_path="$generated_dir_path/${increment_code}-correction-$(date +%Y%m%d%H%M%S).md"
+            printf '%s\n' "$correction_text" > "$correction_output_path"
+            printf '%s\n' "$correction_text" > "$correction_archive_path"
+            echo "Correction prompt saved to $correction_output_path"
+            echo "Archived correction prompt to $correction_archive_path"
+        else
+            rm -f "$correction_output_path"
+            echo "Review status is REPROVADO, but no correction prompt section was found." >&2
+        fi
     fi
 
     echo "Review status: REPROVADO"

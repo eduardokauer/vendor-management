@@ -2,6 +2,7 @@
 set -euo pipefail
 
 orchestrator_log_path=""
+last_host_validation_log_path=""
 
 trim() {
     local value="$1"
@@ -547,6 +548,7 @@ run_host_validations() {
     local validation_log_path="$generated_dir_path/${increment_code}-${label}-host-validation.log"
 
     : > "$validation_log_path"
+    last_host_validation_log_path="$validation_log_path"
     log_info "Host validation log: $validation_log_path"
 
     log_info "Running host hygiene check: git diff --check"
@@ -562,6 +564,47 @@ run_host_validations() {
     fi
 
     log_info "Host validations completed successfully."
+}
+
+build_pr_body_file() {
+    local increment_code="$1"
+    local executor_summary_path="$2"
+    local host_validation_log_path="$3"
+    local output_path="$4"
+
+    {
+        cat <<EOF
+Automated PR for \`$increment_code\`.
+
+This PR was created or resumed by \`./scripts/run_increment.sh\`.
+
+## Host orchestration status
+
+- Required host validation command: \`docker compose --profile test run --rm backend-test\`
+- Host validation result: passed
+- Source of truth for required local validation is the host section below, even if the executor summary mentions sandbox-only limitations.
+
+EOF
+
+        if [[ -n "$host_validation_log_path" && -f "$host_validation_log_path" ]]; then
+            cat <<'EOF'
+### Host validation log
+
+```text
+EOF
+            cat "$host_validation_log_path"
+            cat <<'EOF'
+```
+
+EOF
+        fi
+
+        cat <<'EOF'
+## Executor summary
+
+EOF
+        cat "$executor_summary_path"
+    } > "$output_path"
 }
 
 commit_increment_changes() {
@@ -585,6 +628,7 @@ ensure_pr_exists() {
     local increment_code="$2"
     local increment_title="$3"
     local executor_summary_path="$4"
+    local host_validation_log_path="${5:-}"
 
     existing_pr_json="$(find_open_pr_json "$branch_name")"
     existing_pr_count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' <<<"$existing_pr_json")"
@@ -610,17 +654,7 @@ ensure_pr_exists() {
     fi
 
     pr_body_file="$(mktemp)"
-    {
-        cat <<EOF
-Automated PR for \`$increment_code\`.
-
-This PR was created or resumed by \`./scripts/run_increment.sh\`.
-
-Executor summary:
-
-EOF
-        cat "$executor_summary_path"
-    } > "$pr_body_file"
+    build_pr_body_file "$increment_code" "$executor_summary_path" "$host_validation_log_path" "$pr_body_file"
 
     log_info "Creating PR for $branch_name against develop"
     gh pr create --base develop --head "$branch_name" --title "$increment_code $increment_title" --body-file "$pr_body_file" >/dev/null
@@ -643,9 +677,31 @@ wait_for_pr_checks() {
     local attempt=1
 
     while (( attempt <= auto_check_discovery_attempts )); do
-        gh pr checks "$pr_number" --json name,bucket,state,workflow,link > "$checks_json_file"
+        if ! gh pr checks "$pr_number" --json name,bucket,state,workflow,link > "$checks_json_file" 2>/dev/null; then
+            : > "$checks_json_file"
+        fi
 
-        checks_count="$(python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' < "$checks_json_file")"
+        checks_count="$(
+            python3 - "$checks_json_file" <<'PY'
+import json
+import os
+import sys
+
+path = sys.argv[1]
+if not os.path.exists(path) or os.path.getsize(path) == 0:
+    print(0)
+    raise SystemExit
+
+try:
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+except json.JSONDecodeError:
+    print(0)
+    raise SystemExit
+
+print(len(data))
+PY
+        )"
         if [[ "$checks_count" -gt 0 ]]; then
             break
         fi
@@ -849,7 +905,7 @@ else
     run_host_validations "$increment_code" "initial"
     commit_increment_changes "$increment_code" "$increment_title"
     push_branch_if_needed "$branch_name"
-    ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
+    ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path" "$last_host_validation_log_path"
 fi
 
 cycle=1
@@ -879,7 +935,7 @@ while (( cycle <= auto_max_cycles )); do
         run_host_validations "$increment_code" "ci-fix-${cycle}"
         commit_increment_changes "$increment_code" "$increment_title"
         push_branch_if_needed "$branch_name"
-        ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
+        ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path" "$last_host_validation_log_path"
         cycle=$((cycle + 1))
         continue
     fi
@@ -918,7 +974,7 @@ while (( cycle <= auto_max_cycles )); do
     run_host_validations "$increment_code" "review-fix-${cycle}"
     commit_increment_changes "$increment_code" "$increment_title"
     push_branch_if_needed "$branch_name"
-    ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path"
+    ensure_pr_exists "$branch_name" "$increment_code" "$increment_title" "$last_codex_message_path" "$last_host_validation_log_path"
     cycle=$((cycle + 1))
 done
 

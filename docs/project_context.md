@@ -34,7 +34,7 @@ Ordem de leitura recomendada:
 - **Frontend:** React 19, Vite, React Router, React Hook Form, Yup e Axios.
 - **Banco:** PostgreSQL 15 em Docker.
 - **Testes backend:** Jest + Supertest, executados pelo servico `backend-test`.
-- **Testes frontend:** existe um teste isolado em `frontend/src/__tests__/Login.test.jsx`, mas ainda nao ha runner configurado no `package.json` do frontend nem pipeline frontend consolidado.
+- **Testes frontend:** existe comando oficial `npm test` no frontend com Vitest + jsdom cobrindo login e sessao em `frontend/src/__tests__/Login.test.jsx`, mas ainda nao ha pipeline frontend consolidado.
 - **Ambiente local validado:**
   - SO de referencia validado: Ubuntu/Linux.
   - `docker compose up --build -d` sobe `postgres`, `backend-dev` e `frontend`.
@@ -78,21 +78,24 @@ Ordem de leitura recomendada:
   - home page basica
   - login page com React Hook Form + Yup
   - dashboard protegido
-  - `AuthContext` com login e logout basicos
+  - `AuthContext` com persistencia de token no `localStorage`, bootstrap de sessao via `GET /api/auth/me`, protecao de rota e logout limpando a sessao
 - Testes backend existentes:
   - conectividade com banco
   - fluxo basico de auth
+- Teste frontend minimo existente:
+  - login com persistencia de token
+  - restauracao de sessao em rota protegida
+  - limpeza de token invalido com redirecionamento para login
 - Seed de teste existente em `backend/db/seeds/test/01-users.js`.
 - Ambiente local validado com Docker Compose, migrations e suite backend verde.
 
 ### Parcialmente implementado ou incompleto
 
-- Fluxo de autenticacao frontend nao esta fechado:
-  - o token e salvo no `localStorage`, mas nao ha bootstrap robusto de sessao ao recarregar a aplicacao;
-  - o usuario autenticado nao e reconstruido a partir de `/api/auth/me`;
-  - o dashboard atual e apenas placeholder.
+- Fluxo de autenticacao frontend:
+  - estado: Fechado para login, persistencia do token, bootstrap via `/api/auth/me`, protecao de rota e logout;
+  - o dashboard autenticado ainda e minimo e segue como placeholder para as proximas features apos login.
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
-- O frontend possui um teste isolado, mas ainda nao existe comando oficial de testes frontend.
+- O frontend agora possui comando oficial de testes para auth/sessao, mas a cobertura ainda e localizada nesse fluxo.
 - `vendors` no backend so cobre leitura; CRUD completo nao existe.
 
 ### Ainda nao implementado
@@ -168,8 +171,7 @@ Ordem de leitura recomendada:
 
 ## 6. Riscos e Limitacoes Conhecidas
 
-- O frontend ainda nao possui fluxo de sessao realmente persistente e confiavel.
-- A suite automatizada cobre apenas backend e ainda nao cobre os principais fluxos frontend.
+- A jornada inicial de autenticacao frontend foi fechada, mas a cobertura automatizada de frontend ainda e pequena e concentrada em auth/sessao.
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
 - A camada de vendors esta incompleta no backend e ausente no frontend.
 - A camada de documentos ainda existe apenas no schema, nao no fluxo funcional.
@@ -203,32 +205,31 @@ Ordem de leitura recomendada:
 
 ### Tema ativo do roadmap
 
-- **Tema ativo:** Acesso e sessao do usuario
-- **Objetivo do tema:** fechar a primeira jornada funcional real do frontend autenticado antes de ampliar escopo para vendors e documentos.
+- **Tema ativo:** Gestao operacional de vendors
+- **Objetivo do tema:** usar a autenticacao frontend ja fechada como base para entregar a primeira experiencia operacional real de vendors.
 - **Motivo da prioridade atual:**
-  - a base de backend e auth ja existe;
-  - o frontend ja possui login, `AuthContext` e dashboard protegido, mas a sessao ainda nao e robusta;
-  - sem essa base, os proximos incrementos de vendors e documentos ficam mais caros de validar ponta a ponta.
+  - a jornada de acesso e sessao do usuario foi fechada com bootstrap via `/api/auth/me`;
+  - o backend ja possui schema e endpoints protegidos iniciais para vendors;
+  - o maior gap funcional visivel agora esta na camada operacional de vendors, ainda incompleta no backend e ausente no frontend.
 
 ### Estrutura de refinamento do tema ativo
 
-- **Epico 1:** Persistencia e bootstrap de sessao no frontend
-  - Reconstruir sessao com base no token existente e em `GET /api/auth/me`.
-- **Epico 2:** Navegacao autenticada minima e estado confiavel
-  - Garantir que login, logout, protecao de rota e dashboard reflitam o estado real da sessao.
+- **Epico 1:** CRUD minimo de vendors no backend
+  - Sair do estado atual de leitura apenas e fechar operacoes essenciais com validacoes e testes.
+- **Epico 2:** UI autenticada minima para vendors
+  - Entregar lista e navegacao basica de vendors apoiadas no fluxo de sessao ja estabilizado.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.
+  - Completar CRUD de vendors no backend com testes.
 
 ### Backlog estrategico ordenado
 
-1. Fechar autenticacao frontend com sessao persistente e bootstrap do usuario.
-2. Completar CRUD de vendors no backend com testes.
-3. Entregar UI basica de vendors integrada a API.
-4. Implementar API de documentos e atualizacao de compliance.
-5. Entregar UI de documentos e status de compliance.
-6. Adicionar notificacoes e agendamento.
-7. Consolidar testes frontend/integracao e endurecer validacoes.
-8. Preparar deploy e CI/CD mais ampla.
+1. Completar CRUD de vendors no backend com testes.
+2. Entregar UI basica de vendors integrada a API.
+3. Implementar API de documentos e atualizacao de compliance.
+4. Entregar UI de documentos e status de compliance.
+5. Adicionar notificacoes e agendamento.
+6. Consolidar testes frontend/integracao e endurecer validacoes.
+7. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 
@@ -239,5 +240,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.**
-- Essa ainda e a melhor proxima entrega porque fecha a jornada basica do usuario e cria base confiavel para os incrementos de vendors e documentos.
+- **Completar CRUD de vendors no backend com testes.**
+- Essa passa a ser a melhor proxima entrega porque a base autenticada do frontend ja esta funcional e o principal gargalo de valor agora esta na camada operacional de vendors.

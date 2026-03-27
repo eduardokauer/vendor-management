@@ -78,7 +78,9 @@ Ordem de leitura recomendada:
   - home page basica
   - login page com React Hook Form + Yup
   - dashboard protegido
-  - `AuthContext` com login e logout basicos
+  - persistencia de sessao no frontend com token em `localStorage`
+  - bootstrap do usuario autenticado via `GET /api/auth/me` no carregamento da aplicacao
+  - `AuthContext` refletindo `user`, autenticacao real e logout consistente
 - Testes backend existentes:
   - conectividade com banco
   - fluxo basico de auth
@@ -87,13 +89,10 @@ Ordem de leitura recomendada:
 
 ### Parcialmente implementado ou incompleto
 
-- Fluxo de autenticacao frontend nao esta fechado:
-  - o token e salvo no `localStorage`, mas nao ha bootstrap robusto de sessao ao recarregar a aplicacao;
-  - o usuario autenticado nao e reconstruido a partir de `/api/auth/me`;
-  - o dashboard atual e apenas placeholder.
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
 - O frontend possui um teste isolado, mas ainda nao existe comando oficial de testes frontend.
 - `vendors` no backend so cobre leitura; CRUD completo nao existe.
+- O dashboard atual ainda e um placeholder funcional, sem dados de vendors ou documentos.
 
 ### Ainda nao implementado
 
@@ -168,7 +167,6 @@ Ordem de leitura recomendada:
 
 ## 6. Riscos e Limitacoes Conhecidas
 
-- O frontend ainda nao possui fluxo de sessao realmente persistente e confiavel.
 - A suite automatizada cobre apenas backend e ainda nao cobre os principais fluxos frontend.
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
 - A camada de vendors esta incompleta no backend e ausente no frontend.
@@ -204,31 +202,31 @@ Ordem de leitura recomendada:
 ### Tema ativo do roadmap
 
 - **Tema ativo:** Acesso e sessao do usuario
-- **Objetivo do tema:** fechar a primeira jornada funcional real do frontend autenticado antes de ampliar escopo para vendors e documentos.
+- **Objetivo do tema:** consolidar a primeira jornada funcional real do frontend autenticado e usar essa base para os proximos fluxos protegidos.
 - **Motivo da prioridade atual:**
   - a base de backend e auth ja existe;
-  - o frontend ja possui login, `AuthContext` e dashboard protegido, mas a sessao ainda nao e robusta;
-  - sem essa base, os proximos incrementos de vendors e documentos ficam mais caros de validar ponta a ponta.
+  - o frontend agora possui login, bootstrap de sessao e dashboard protegido com estado autenticado consistente;
+  - essa base reduz o custo de validar ponta a ponta os proximos incrementos de vendors e documentos.
 
 ### Estrutura de refinamento do tema ativo
 
 - **Epico 1:** Persistencia e bootstrap de sessao no frontend
-  - Reconstruir sessao com base no token existente e em `GET /api/auth/me`.
+  - Status atual: concluido.
+  - O frontend reconstrui a sessao com base no token existente e em `GET /api/auth/me`.
 - **Epico 2:** Navegacao autenticada minima e estado confiavel
-  - Garantir que login, logout, protecao de rota e dashboard reflitam o estado real da sessao.
-- **Primeira fatia pronta para execucao recomendada:**
-  - Fechar o fluxo de autenticacao frontend com persistencia de sessao e bootstrap do usuario autenticado.
+  - Status atual: base funcional concluida com login, logout, redirect de `/login` e protecao de `/dashboard`.
+- **Proxima fatia recomendada:**
+  - Usar a sessao autenticada consolidada para iniciar a primeira UI funcional de vendors protegida por papel.
 
 ### Backlog estrategico ordenado
 
-1. Fechar autenticacao frontend com sessao persistente e bootstrap do usuario.
-2. Completar CRUD de vendors no backend com testes.
-3. Entregar UI basica de vendors integrada a API.
-4. Implementar API de documentos e atualizacao de compliance.
-5. Entregar UI de documentos e status de compliance.
-6. Adicionar notificacoes e agendamento.
-7. Consolidar testes frontend/integracao e endurecer validacoes.
-8. Preparar deploy e CI/CD mais ampla.
+1. Completar CRUD de vendors no backend com testes.
+2. Entregar UI basica de vendors integrada a API.
+3. Implementar API de documentos e atualizacao de compliance.
+4. Entregar UI de documentos e status de compliance.
+5. Adicionar notificacoes e agendamento.
+6. Consolidar testes frontend/integracao e endurecer validacoes.
+7. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 

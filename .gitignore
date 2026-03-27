@@ -14,6 +14,9 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+prompts/next_prompt.md
+prompts/review_result.md
+prompts/generated/
 
 # Logs
 npm-debug.log*

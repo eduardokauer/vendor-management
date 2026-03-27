@@ -50,6 +50,20 @@ echo "Title: $pr_title"
 echo "URL: $pr_url"
 echo "Branch: $pr_head -> $pr_base"
 
+if [[ "$pr_base" != "develop" ]]; then
+    rm -f "$pr_json_file"
+    echo "This workflow only supports squash merge automation for PRs targeting develop." >&2
+    exit 1
+fi
+
+if [[ ! "$pr_title" =~ (INC-[0-9]{3}) ]]; then
+    rm -f "$pr_json_file"
+    echo "Could not detect an INC-XXX code in the PR title." >&2
+    exit 1
+fi
+
+increment_code="${BASH_REMATCH[1]}"
+
 read -r -p "Proceed with squash merge and delete branch? [y/N] " confirmation
 if [[ "$confirmation" != "y" && "$confirmation" != "Y" && "$confirmation" != "yes" && "$confirmation" != "YES" ]]; then
     rm -f "$pr_json_file"
@@ -59,40 +73,59 @@ fi
 
 gh pr merge "$resolved_pr_number" --squash --delete-branch
 
-git switch develop
-git pull --ff-only origin develop
-
-if [[ ! "$pr_title" =~ (INC-[0-9]{3}) ]]; then
-    rm -f "$pr_json_file"
-    echo "Could not detect an INC-XXX code in the PR title." >&2
-    exit 1
-fi
-
-increment_code="${BASH_REMATCH[1]}"
 increments_path="$repo_root/INCREMENTS.md"
+repo_name_with_owner="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
+contents_json_file="$(mktemp)"
+update_payload_file="$(mktemp)"
 
-python3 - "$increments_path" "$increment_code" <<'PY'
-import pathlib
+gh api "repos/$repo_name_with_owner/contents/INCREMENTS.md?ref=develop" > "$contents_json_file"
+
+python3 - "$contents_json_file" "$increment_code" "$update_payload_file" <<'PY'
+import base64
+import json
 import re
 import sys
 
-path = pathlib.Path(sys.argv[1])
+contents_json_path = sys.argv[1]
 increment_code = sys.argv[2]
-text = path.read_text(encoding="utf-8")
+output_payload_path = sys.argv[3]
+
+with open(contents_json_path, encoding="utf-8") as handle:
+    contents_data = json.load(handle)
+
+content = base64.b64decode(contents_data["content"]).decode("utf-8")
 pattern = re.compile(rf"(?m)^- \[[ x>]\] \*\*{re.escape(increment_code)}\*\*(.*)$")
 
-if not pattern.search(text):
+if not pattern.search(content):
     raise SystemExit(f"Could not find {increment_code} in INCREMENTS.md.")
 
-updated = pattern.sub(rf"- [x] **{increment_code}**\1", text, count=1)
-path.write_text(updated, encoding="utf-8")
+updated = pattern.sub(rf"- [x] **{increment_code}**\1", content, count=1)
+payload = {
+    "message": f"Mark {increment_code} as completed",
+    "content": base64.b64encode(updated.encode("utf-8")).decode("ascii"),
+    "sha": contents_data["sha"],
+    "branch": "develop",
+}
+
+with open(output_payload_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle)
 PY
 
-git add INCREMENTS.md
-git commit -m "Mark $increment_code as completed"
-git push origin develop
+gh api \
+    --method PUT \
+    -H "Accept: application/vnd.github+json" \
+    "repos/$repo_name_with_owner/contents/INCREMENTS.md" \
+    --input "$update_payload_file" >/dev/null
 
-rm -f "$pr_json_file"
+if git diff --quiet && git diff --cached --quiet; then
+    git fetch origin develop
+    git switch develop
+    git pull --ff-only origin develop
+else
+    echo "Remote backlog updated, but local working tree is dirty. Skipping local develop sync."
+fi
 
-echo "Merged PR #$resolved_pr_number and marked $increment_code as completed."
+rm -f "$pr_json_file" "$contents_json_file" "$update_payload_file"
+
+echo "Merged PR #$resolved_pr_number and marked $increment_code as completed on develop."
 echo "Next step suggestion: ./scripts/gen_prompt.sh"

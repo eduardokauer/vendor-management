@@ -141,11 +141,17 @@ open_in_vscode() {
 }
 
 pr_number=""
+prompt_file_override=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -PrNumber|--pr-number)
             [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
             pr_number="$2"
+            shift 2
+            ;;
+        --prompt-file)
+            [[ $# -ge 2 ]] || { echo "Missing value for $1" >&2; exit 1; }
+            prompt_file_override="$2"
             shift 2
             ;;
         *)
@@ -163,19 +169,14 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 root_env_path="$repo_root/.env"
 project_context_path="$repo_root/docs/project_context.md"
 pm_workflow_path="$repo_root/docs/pm_workflow.md"
-next_prompt_path="$repo_root/prompts/next_prompt.md"
 output_path="$repo_root/prompts/review_result.md"
+generated_dir_path="$repo_root/prompts/generated"
 
 load_env_file "$root_env_path"
 
 gemini_key="${GEMINI_KEY:-}"
 if [[ -z "$gemini_key" ]]; then
     echo "GEMINI_KEY is not defined. Set it in the environment or in the root .env file." >&2
-    exit 1
-fi
-
-if [[ ! -f "$next_prompt_path" ]]; then
-    echo "prompts/next_prompt.md was not found. Run ./scripts/gen_prompt.sh before reviewing a PR." >&2
     exit 1
 fi
 
@@ -208,13 +209,37 @@ PY
 
 project_context="$(<"$project_context_path")"
 pm_workflow="$(<"$pm_workflow_path")"
-original_prompt="$(<"$next_prompt_path")"
 pr_body="$(python3 -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); print(data.get("body") or "")' "$pr_json_file")"
 pr_title="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["title"])' "$pr_json_file")"
 pr_url="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["url"])' "$pr_json_file")"
 pr_head="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["headRefName"])' "$pr_json_file")"
 pr_base="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["baseRefName"])' "$pr_json_file")"
 pr_diff="$(<"$diff_file")"
+
+if [[ "$pr_title" =~ (INC-[0-9]{3}) ]]; then
+    increment_code="${BASH_REMATCH[1]}"
+elif [[ -n "$prompt_file_override" ]]; then
+    increment_code="MANUAL"
+else
+    echo "Could not detect an INC-XXX code in the PR title. Review requires an increment-specific prompt archive." >&2
+    rm -f "$pr_json_file" "$diff_file" "$review_prompt_file"
+    exit 1
+fi
+
+if [[ -n "$prompt_file_override" ]]; then
+    prompt_source_path="$prompt_file_override"
+else
+    prompt_source_path="$generated_dir_path/${increment_code}.md"
+fi
+
+if [[ ! -f "$prompt_source_path" ]]; then
+    echo "Prompt source not found: $prompt_source_path" >&2
+    echo "Generate the increment prompt first with ./scripts/gen_prompt.sh or pass --prompt-file explicitly." >&2
+    rm -f "$pr_json_file" "$diff_file" "$review_prompt_file"
+    exit 1
+fi
+
+original_prompt="$(<"$prompt_source_path")"
 
 {
     cat <<'EOF'
@@ -272,10 +297,12 @@ EOF
 ## Metadados do PR
 
 - Numero: $resolved_pr_number
+- Incremento: $increment_code
 - Titulo: $pr_title
 - URL: $pr_url
 - Branch head: $pr_head
 - Branch base: $pr_base
+- Prompt source: $prompt_source_path
 
 ## Body do PR
 

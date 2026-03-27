@@ -156,10 +156,10 @@ Ordem de leitura recomendada:
 ### Operacao assistida por IA
 
 - O desenvolvedor define o proximo incremento em `INCREMENTS.md`.
-- `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente e do contexto atual.
+- `scripts/gen_prompt.sh` gera o prompt do Codex a partir do incremento pendente, salva `prompts/next_prompt.md` e arquiva uma copia vinculada ao `INC-XXX`.
 - O Codex implementa a entrega respeitando `docs/project_context.md` e `docs/codex_workflow.md`.
-- `scripts/review_pr.sh` revisa o PR contra o objetivo, fora de escopo e DoD.
-- `scripts/merge_pr.sh` faz squash merge em `develop` e marca o incremento como concluido.
+- `scripts/review_pr.sh` revisa o PR contra o objetivo, fora de escopo e DoD usando o prompt arquivado do incremento.
+- `scripts/merge_pr.sh` faz squash merge em `develop` e marca o incremento como concluido via GitHub API.
 
 ## 6. Riscos e Limitacoes Conhecidas
 
@@ -171,6 +171,7 @@ Ordem de leitura recomendada:
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl` e `python3`.
 - `backend/.env` e `.env` na raiz tem papeis diferentes e nao devem ser confundidos.
+- O fluxo de review e merge depende de o titulo do PR conter `INC-XXX` e de o trabalho seguir um incremento por vez.
 
 ## 7. Proximo Passo Atual e Sequencia Recomendada
 

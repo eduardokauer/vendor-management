@@ -189,6 +189,7 @@ project_context_path="$repo_root/docs/project_context.md"
 pm_workflow_path="$repo_root/docs/pm_workflow.md"
 template_path="$repo_root/prompts/PROMPT_TEMPLATE.md"
 output_path="$repo_root/prompts/next_prompt.md"
+generated_dir_path="$repo_root/prompts/generated"
 
 load_env_file "$root_env_path"
 
@@ -210,6 +211,9 @@ next_increment_markdown="$(python3 -c 'import json,sys; print(json.load(sys.stdi
 project_context="$(<"$project_context_path")"
 pm_workflow="$(<"$pm_workflow_path")"
 prompt_template="$(<"$template_path")"
+generated_prompt_path="$generated_dir_path/${next_increment_code}.md"
+
+mkdir -p "$generated_dir_path"
 
 prompt_file="$(mktemp)"
 {
@@ -255,8 +259,10 @@ generated_prompt="$(invoke_gemini_prompt "$gemini_key" "$prompt_file" 0.3 4096)"
 rm -f "$prompt_file"
 
 printf '%s\n' "$generated_prompt" > "$output_path"
+printf '%s\n' "$generated_prompt" > "$generated_prompt_path"
 
 echo "Prompt generated for $next_increment_code: $next_increment_title"
 echo "Saved to $output_path"
+echo "Archived prompt to $generated_prompt_path"
 
 open_in_vscode "$output_path"

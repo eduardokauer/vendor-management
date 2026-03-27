@@ -88,6 +88,7 @@ prompts/next_prompt.md
 prompts/review_result.md
 prompts/correction_prompt.md
 prompts/generated/INC-XXX.md
+prompts/generated/INC-XXX-orchestrator.log
 ```
 
 ## Ignored runtime artifacts
@@ -106,7 +107,7 @@ prompts/generated/
 1. Update `INCREMENTS.md` with the next desired increment.
 2. Choose either step-by-step execution or one-command orchestration.
 3. In step-by-step mode, run `gen_prompt.sh`, then let Codex implement the increment, then use `review_pr.sh` and `merge_pr.sh`.
-4. In orchestrated mode, run `run_increment.sh`, which generates the prompt, executes Codex, opens or updates the PR, waits for checks, asks Gemini for review, sends correction prompts back to Codex when needed and merges on approval.
+4. In orchestrated mode, run `run_increment.sh`, which generates the prompt, executes Codex for code edits, runs host validations, commits and pushes the branch, opens or updates the PR, waits for checks, asks Gemini for review, sends correction prompts back to Codex when needed and merges on approval.
    If no PR checks are reported after the configured wait window, the orchestrator stops instead of continuing without CI.
 5. If Gemini daily quota is exhausted during orchestration, `run_increment.sh` writes a pending resume state and installs a user cron entry that polls until the next daily reset window is reached, then relaunches the increment automatically.
 
@@ -216,7 +217,9 @@ What it does:
 - resolves the target increment from `INCREMENTS.md`
 - generates the PM prompt with Gemini
 - creates or resumes the target branch
-- runs the local Codex CLI in non-interactive mode
+- runs the local Codex CLI in non-interactive mode for code edits
+- runs the required host validations after each Codex pass
+- commits and pushes the branch from the host shell
 - opens or updates the PR against `develop`
 - waits for GitHub checks to appear and finish
 - fails closed if no GitHub checks are reported for the PR after the configured discovery window
@@ -229,9 +232,11 @@ What it does:
 
 Artifacts generated during the loop:
 - `prompts/generated/INC-XXX.md`: the original PM prompt
+- `prompts/generated/INC-XXX-orchestrator.log`: human-readable timeline of the orchestration run
 - `prompts/generated/INC-XXX-executor-*.md`: executor prompts wrapped with automation context
 - `prompts/generated/INC-XXX-*-events.jsonl`: raw Codex batch event log
 - `prompts/generated/INC-XXX-*-last-message.md`: last Codex message captured from the run
+- `prompts/generated/INC-XXX-*-host-validation.log`: host-side validation stdout/stderr for that pass
 - `prompts/generated/pending_rpd_resume.json`: pending resume state when daily Gemini quota is exhausted
 - `prompts/generated/auto_resume.log`: cron-driven resume log
 - `prompts/review_result.md`: latest Gemini review output
@@ -242,6 +247,7 @@ Important:
 - the PR must target `develop`;
 - backlog-driven automation expects PR titles in the format `INC-XXX ...`.
 - automatic daily resume depends on `crontab` being available for the current user.
+- the host shell running `run_increment.sh` must be the shell that actually has Docker and GitHub access, because the orchestrator now owns validation and publish steps.
 
 ### 3. Review the current PR with Gemini
 
@@ -326,7 +332,7 @@ Important:
 ./scripts/run_increment.sh
 ```
 
-5. Monitor the generated artifacts in `prompts/` if you want visibility into each cycle.
+5. Monitor `prompts/generated/INC-XXX-orchestrator.log` if you want a readable timeline of each cycle. The raw Codex JSON stream remains available in `prompts/generated/INC-XXX-*-events.jsonl`.
 6. If you ran with `--no-merge`, finish manually with:
 
 ```bash
@@ -397,3 +403,5 @@ docker compose --profile test run --rm backend-test
   - Confirm the PR targets `develop` or `main` and that GitHub Actions is enabled for the repository.
 - `No PR checks reported for PR #... after waiting`
   - The orchestrator now stops before review or merge when no checks appear. Confirm that GitHub Actions is enabled, the workflow file is present on the PR branch, and the PR targets the expected base branch.
+- `run_increment.sh` stopped after host validation failed
+  - Inspect `prompts/generated/INC-XXX-orchestrator.log` for the timeline and `prompts/generated/INC-XXX-*-host-validation.log` for the exact validation output captured by the host.

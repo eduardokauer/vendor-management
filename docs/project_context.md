@@ -38,7 +38,7 @@ Ordem de leitura recomendada:
 - **Ambiente local validado:**
   - SO de referencia validado: Ubuntu/Linux.
   - `docker compose up --build -d` sobe `postgres`, `backend-dev` e `frontend`.
-  - `docker compose --profile test run --rm backend-test` executa a suite backend.
+  - `docker compose --profile test run --rm backend-test` executa a suite backend usando o codigo atual montado de `./backend`, evitando validacao sobre imagem defasada.
   - Portas locais:
     - frontend: `http://localhost:5173`
     - backend: `http://localhost:3000`
@@ -46,7 +46,7 @@ Ordem de leitura recomendada:
 - **Servicos Compose atuais:**
   - `postgres`: banco de desenvolvimento e teste.
   - `backend-dev`: API Express em hot reload.
-  - `backend-test`: suite de testes backend em profile `test`.
+  - `backend-test`: suite de testes backend em profile `test`, montando `./backend` para refletir o estado atual do workspace durante a validacao.
   - `frontend`: app React/Vite em hot reload.
 - **Fluxo assistido por IA do projeto:**
   - `docs/project_context.md`, `docs/pm_workflow.md` e `docs/codex_workflow.md` definem memoria e processo.

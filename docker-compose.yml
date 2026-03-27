@@ -58,6 +58,9 @@ services:
       JWT_SECRET: test_secret_456
       JWT_EXPIRY: 1h
     command: npm test
+    volumes:
+      - ./backend:/usr/src/app
+      - backend_test_node_modules:/usr/src/app/node_modules
     networks:
       - vms-network
     depends_on:
@@ -88,4 +91,5 @@ networks:
 volumes:
   postgres_data:
   backend_node_modules:
+  backend_test_node_modules:
   frontend_node_modules:

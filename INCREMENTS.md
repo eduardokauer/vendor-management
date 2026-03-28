@@ -20,7 +20,7 @@
   - Atualizar a logica backend para refletir status de compliance do vendor com base na presenca e validade dos documentos suportados pelo MVP.
   - Fora de escopo: integracao com storage externo, versionamento sofisticado, UI completa de documentos ou notificacoes por e-mail.
 
-- [ ] **INC-005** Entregar UI de documentos e status de compliance por vendor
+- [x] **INC-005** Entregar UI de documentos e status de compliance por vendor
   - Integrar o frontend com a API de documentos para permitir upload minimo, listagem e visualizacao de status de compliance.
   - Expor o status do vendor de forma clara na experiencia autenticada e no fluxo de gestao de vendors.
   - Fora de escopo: drag and drop avancado, historico de versoes complexo, notificacoes e dashboard analitico amplo.

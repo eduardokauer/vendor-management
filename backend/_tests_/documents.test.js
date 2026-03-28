@@ -101,6 +101,20 @@ describe('Documents API', () => {
       expect(res.status).toBe(403);
       expect(res.body).toEqual({ message: 'Forbidden' });
     });
+
+    test('rejects malformed vendor IDs before listing documents', async () => {
+      const res = await request(app)
+        .get('/api/vendors/not-a-uuid/documents')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          vendorId: 'vendorId must be a valid UUID',
+        },
+      });
+    });
   });
 
   describe('document lifecycle', () => {
@@ -223,6 +237,55 @@ describe('Documents API', () => {
       expect(res.body).toEqual({ message: 'Document not found' });
     });
 
+    test('returns validation errors for an invalid expiry date', async () => {
+      const vendor = await createVendor();
+
+      const res = await request(app)
+        .post(`/api/documents/upload/${vendor.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .field('type', 'insurance')
+        .field('expires_at', 'not-a-date')
+        .attach('file', Buffer.from('insurance-file'), 'insurance.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          expires_at: 'expires_at must be a valid date',
+        },
+      });
+    });
+
+    test('returns 400 when uploading with a malformed vendor ID', async () => {
+      const res = await request(app)
+        .post('/api/documents/upload/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .field('type', 'insurance')
+        .attach('file', Buffer.from('insurance-file'), 'insurance.pdf');
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          vendorId: 'vendorId must be a valid UUID',
+        },
+      });
+    });
+
+    test('returns 400 when downloading with a malformed document ID', async () => {
+      const res = await request(app)
+        .get('/api/documents/not-a-uuid/download')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          documentId: 'documentId must be a valid UUID',
+        },
+      });
+    });
+
     test('allows manual compliance refresh for admin users', async () => {
       const vendor = await createVendor();
 
@@ -254,6 +317,20 @@ describe('Documents API', () => {
         vendor: {
           id: vendor.id,
           status: 'Compliant',
+        },
+      });
+    });
+
+    test('returns 400 when manually refreshing compliance with a malformed vendor ID', async () => {
+      const res = await request(app)
+        .post('/api/vendors/not-a-uuid/check-compliance')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          id: 'id must be a valid UUID',
         },
       });
     });

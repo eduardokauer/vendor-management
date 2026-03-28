@@ -4,9 +4,59 @@ const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
 
+const VALID_ROLES = ['admin', 'vendor'];
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const validateAuthPayload = (payload = {}, { mode = 'register' } = {}) => {
+  const errors = {};
+  const sanitized = {};
+
+  if (typeof payload.email !== 'string' || payload.email.trim().length === 0) {
+    errors.email = 'email is required';
+  } else if (!EMAIL_REGEX.test(payload.email.trim())) {
+    errors.email = 'email must be a valid email';
+  } else {
+    sanitized.email = payload.email.trim().toLowerCase();
+  }
+
+  if (typeof payload.password !== 'string' || payload.password.trim().length === 0) {
+    errors.password = 'password is required';
+  } else if (mode === 'register' && payload.password.trim().length < 8) {
+    errors.password = 'password must be at least 8 characters';
+  } else {
+    sanitized.password = payload.password;
+  }
+
+  if (mode === 'register') {
+    if (payload.role !== undefined) {
+      if (!VALID_ROLES.includes(payload.role)) {
+        errors.role = `role must be one of: ${VALID_ROLES.join(', ')}`;
+      } else {
+        sanitized.role = payload.role;
+      }
+    } else {
+      sanitized.role = 'vendor';
+    }
+  }
+
+  return {
+    errors,
+    sanitized,
+  };
+};
+
 // Register new user
 exports.registerUser = async (req, res) => {
-  const { email, password, role } = req.body;
+  const { errors, sanitized } = validateAuthPayload(req.body);
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      message: 'Validation failed',
+      errors,
+    });
+  }
+
+  const { email, password, role } = sanitized;
 
   try {
     // Check if user already exists
@@ -54,7 +104,16 @@ exports.registerUser = async (req, res) => {
 
 // Login user
 exports.loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  const { errors, sanitized } = validateAuthPayload(req.body, { mode: 'login' });
+
+  if (Object.keys(errors).length > 0) {
+    return res.status(400).json({
+      message: 'Validation failed',
+      errors,
+    });
+  }
+
+  const { email, password } = sanitized;
 
   try {
     // Check if user exists

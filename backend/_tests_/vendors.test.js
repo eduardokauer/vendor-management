@@ -60,6 +60,20 @@ describe('Vendors API', () => {
       expect(res.status).toBe(403);
       expect(res.body).toEqual({ message: 'Forbidden' });
     });
+
+    test('rejects malformed vendor IDs before hitting the controller', async () => {
+      const res = await request(app)
+        .get('/api/vendors/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          id: 'id must be a valid UUID',
+        },
+      });
+    });
   });
 
   describe('POST /api/vendors', () => {
@@ -200,6 +214,23 @@ describe('Vendors API', () => {
       expect(res.status).toBe(404);
       expect(res.body).toEqual({ message: 'Vendor not found' });
     });
+
+    test('returns 400 when the vendor ID is malformed', async () => {
+      const res = await request(app)
+        .put('/api/vendors/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Missing Vendor',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          id: 'id must be a valid UUID',
+        },
+      });
+    });
   });
 
   describe('DELETE /api/vendors/:id', () => {
@@ -231,6 +262,36 @@ describe('Vendors API', () => {
 
       expect(res.status).toBe(404);
       expect(res.body).toEqual({ message: 'Vendor not found' });
+    });
+
+    test('returns 400 when deleting with a malformed vendor ID', async () => {
+      const res = await request(app)
+        .delete('/api/vendors/not-a-uuid')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          id: 'id must be a valid UUID',
+        },
+      });
+    });
+  });
+
+  describe('POST /api/vendors/:id/check-compliance', () => {
+    test('returns 400 when the vendor ID is malformed', async () => {
+      const res = await request(app)
+        .post('/api/vendors/not-a-uuid/check-compliance')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          id: 'id must be a valid UUID',
+        },
+      });
     });
   });
 });

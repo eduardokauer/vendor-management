@@ -35,6 +35,7 @@ Ordem de leitura recomendada:
 - **Banco:** PostgreSQL 15 em Docker.
 - **Testes backend:** Jest + Supertest, executados pelo servico `backend-test`.
 - **Testes frontend:** existe comando oficial `npm test` no frontend com Vitest + jsdom cobrindo login e sessao em `frontend/src/__tests__/Login.test.jsx`, mas ainda nao ha pipeline frontend consolidado.
+- **Testes frontend:** existe comando oficial `npm test` no frontend com Vitest, ambiente `jsdom` centralizado em `frontend/vite.config.js` e setup compartilhado em `frontend/src/test/setupTests.js`.
 - **Ambiente local validado:**
   - SO de referencia validado: Ubuntu/Linux.
   - `docker compose up --build -d` sobe `postgres`, `backend-dev` e `frontend`.
@@ -111,14 +112,18 @@ Ordem de leitura recomendada:
   - conectividade com banco
   - fluxo basico de auth
   - suite de integracao para CRUD de vendors cobrindo sucesso e erros principais
-- Teste frontend minimo existente:
+- Validacoes backend endurecidas para:
+  - payload de auth com verificacao formal de email, password e role
+  - IDs malformados de vendor e document antes de chegar aos controllers
+  - cenarios de erro mais criticos de vendors e documents cobertos por testes de integracao
+- Suite frontend atual consolidada:
   - login com persistencia de token
   - restauracao de sessao em rota protegida
   - limpeza de token invalido com redirecionamento para login
-  - gestao de vendors no frontend
+  - CRUD de vendors no frontend
   - fluxo de documentos/compliance por vendor no frontend
 - Seed de teste existente em `backend/db/seeds/test/01-users.js`.
-- Ambiente local validado com Docker Compose, migrations e suite backend verde.
+- Ambiente local validado com Docker Compose, suite backend verde e suite frontend verde no container `frontend`.
 
 ### Parcialmente implementado ou incompleto
 
@@ -126,7 +131,7 @@ Ordem de leitura recomendada:
   - estado: Fechado para login, persistencia do token, bootstrap via `/api/auth/me`, protecao de rota, logout e dashboard autenticado com resumo operacional basico;
   - o dashboard ainda nao oferece analiticos amplos, filtros ou automacoes operacionais.
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
-- O frontend agora possui comando oficial de testes, mas a cobertura ainda e enxuta mesmo apos incluir auth, vendors e documentos.
+- O frontend agora possui runner configurado de forma centralizada, mas a cobertura ainda segue enxuta em relacao ao escopo total do produto.
 - O frontend ja cobre a operacao minima de vendors e documentos para `admin`, mas ainda sem refinamentos de UX como filtros, historico ou dashboard analitico.
 
 ### Ainda nao implementado
@@ -195,6 +200,8 @@ Ordem de leitura recomendada:
   - `./init-db.sh`
 - Suite backend local:
   - `docker compose --profile test run --rm backend-test`
+- Suite frontend local:
+  - `docker compose exec -T frontend npm test`
 - Validacao operacional das notificacoes:
   - subir ou reiniciar `backend-dev` e verificar `docker compose logs --tail=80 backend-dev` para confirmar `notification scheduler initialized`
   - para simular o fluxo sem SMTP real, usar `EMAIL_TRANSPORT=json` e executar os jobs dentro do container com dados temporarios de vendor/document, observando o payload serializado no log
@@ -254,7 +261,8 @@ Ordem de leitura recomendada:
   - a camada autenticada de vendors e documentos/compliance ja existe de ponta a ponta para `admin`;
   - o baseline visivel prometido pelo MVP agora esta entregue;
   - o backend agora cobre notificacoes basicas e scheduler localmente validavel;
-  - o principal gap restante passa a ser endurecimento de testes, validacoes e pipeline.
+  - os fluxos principais contam com suites backend e frontend mais consolidadas;
+  - o principal gap restante passa a ser pipeline de entrega e promocao entre ambientes.
 
 ### Estrutura de refinamento do tema ativo
 
@@ -265,12 +273,11 @@ Ordem de leitura recomendada:
 - **Epico 3:** Preparacao de entrega
   - Evoluir CI/CD e fluxo de publicacao alem do baseline atual de PR.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Consolidar testes automatizados e endurecer validacoes nos fluxos ja entregues.
+  - Preparar o baseline de deploy e CI/CD alem do teste de PR atual.
 
 ### Backlog estrategico ordenado
 
-1. Consolidar testes frontend/integracao e endurecer validacoes.
-2. Preparar deploy e CI/CD mais ampla.
+1. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 
@@ -281,5 +288,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Consolidar testes automatizados e endurecer validacoes.**
-- Essa passa a ser a melhor proxima entrega porque o baseline funcional ja cobre auth, vendors, documentos e notificacoes, enquanto o principal risco restante esta na robustez de testes e validacoes.
+- **Preparar deploy e CI/CD alem do teste de PR.**
+- Essa passa a ser a melhor proxima entrega porque o baseline funcional ja cobre auth, vendors, documentos, notificacoes e suites automatizadas locais, enquanto o principal gap remanescente esta na entrega, publicacao e promocao segura entre `develop` e `main`.

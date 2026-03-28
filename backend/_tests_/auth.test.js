@@ -54,6 +54,26 @@ describe('Authentication API', () => {
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('message', 'User already exists');
     });
+
+    test('should reject invalid registration payloads', async () => {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'invalid-email',
+          password: 'short',
+          role: 'manager',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          email: 'email must be a valid email',
+          password: 'password must be at least 8 characters',
+          role: 'role must be one of: admin, vendor',
+        },
+      });
+    });
   });
 
   describe('POST /login', () => {
@@ -91,6 +111,24 @@ describe('Authentication API', () => {
       
       expect(res.status).toBe(400);
       expect(res.body).toHaveProperty('message', 'Invalid credentials');
+    });
+
+    test('should reject missing login credentials', async () => {
+      const res = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: '',
+          password: '',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body).toEqual({
+        message: 'Validation failed',
+        errors: {
+          email: 'email is required',
+          password: 'password is required',
+        },
+      });
     });
   });
 });

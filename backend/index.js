@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const db = require('./config/db');
+const { startNotificationScheduler } = require('./services/notificationScheduler');
 
 // Create express app
 const app = express();
@@ -43,16 +44,22 @@ app.use('/api/documents', require('./routes/documents'));
 
 // Server instance
 let server;
+let notificationScheduler;
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    notificationScheduler = startNotificationScheduler();
   });
 }
 
 // Graceful shutdown
 const shutdown = () => {
+  if (notificationScheduler) {
+    notificationScheduler.stop();
+  }
+
   if (server) {
     server.close(() => {
       console.log('Server closed');
@@ -67,4 +74,4 @@ process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
 // Export for testing
-module.exports = { app, server };
+module.exports = { app, notificationScheduler, server };

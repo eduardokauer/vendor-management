@@ -30,7 +30,7 @@ Ordem de leitura recomendada:
 
 ## 2. Stack e Infraestrutura
 
-- **Backend:** Node.js 18, Express.js, Knex, pg, bcrypt, JWT e UUID.
+- **Backend:** Node.js 18, Express.js, Knex, pg, bcrypt, JWT, UUID, Nodemailer e node-cron.
 - **Frontend:** React 19, Vite, React Router, React Hook Form, Yup e Axios.
 - **Banco:** PostgreSQL 15 em Docker.
 - **Testes backend:** Jest + Supertest, executados pelo servico `backend-test`.
@@ -94,6 +94,12 @@ Ordem de leitura recomendada:
   - download por `documentId`
   - atualizacao basica do status de compliance do vendor com base em documentos obrigatorios nao expirados
   - endpoint manual para recalcular compliance sob demanda por vendor
+- Fluxo minimo de notificacoes no backend concluido com:
+  - scheduler local via `node-cron` inicializado no bootstrap do backend
+  - job de lembrete para documentos que expiram dentro da janela configurada
+  - job de resumo periodico do estado de compliance dos vendors
+  - servico de e-mail com transporte `json` por padrao para validacao local sem credenciais reais
+  - configuracao por variaveis de ambiente e `backend/.env.example`
 - Frontend com:
   - home page basica
   - login page com React Hook Form + Yup
@@ -127,7 +133,6 @@ Ordem de leitura recomendada:
 
 - Versionamento sofisticado de documentos.
 - Regras de compliance mais avancadas do que o baseline atual por tipos obrigatorios e validade.
-- Notificacoes por e-mail e agendamento.
 - Pipeline completa para frontend, integracao e E2E.
 - Deploy e CI/CD alem da validacao backend de PR.
 
@@ -166,6 +171,8 @@ Ordem de leitura recomendada:
 - O upload atual usa armazenamento local em `backend/uploads/documents`, pensado para desenvolvimento local.
 - A regra minima de compliance atual considera o vendor `Compliant` apenas quando existem documentos nao expirados para todos os tipos obrigatorios.
 - Os tipos obrigatorios atuais podem ser configurados por `REQUIRED_DOCUMENT_TYPES`; sem override, o baseline do projeto e `insurance,license`.
+- O baseline de notificacoes envia lembretes e resumos para os destinatarios definidos em `NOTIFICATION_RECIPIENTS`.
+- O transporte de e-mail local padrao e `EMAIL_TRANSPORT=json`, que serializa o payload do e-mail no log e permite validar o fluxo sem SMTP real.
 - Versionamento de documentos, storage externo e regras avancadas de compliance continuam fora do baseline atual.
 
 ### Dados e ambiente
@@ -173,7 +180,9 @@ Ordem de leitura recomendada:
 - Nao existe seed de desenvolvimento no repositorio.
 - Seed automatica existe apenas para o ambiente de teste.
 - O projeto usa `backend/.env` para variaveis do backend local.
+- O repositorio agora inclui `backend/.env.example` com as variaveis basicas de banco, auth e notificacoes.
 - `REQUIRED_DOCUMENT_TYPES` e opcional no backend e permite sobrescrever os tipos obrigatorios usados na compliance basica.
+- `NOTIFICATION_SCHEDULER_ENABLED`, `NOTIFICATION_RUN_ON_START`, `EXPIRATION_REMINDER_WINDOW_DAYS`, `EXPIRATION_REMINDER_SCHEDULE`, `COMPLIANCE_SUMMARY_SCHEDULE`, `NOTIFICATION_RECIPIENTS`, `EMAIL_TRANSPORT` e `EMAIL_FROM` controlam o baseline local de notificacoes.
 - Os scripts do framework usam `.env` na raiz para `GEMINI_KEY` e futuras configuracoes locais do pipeline.
 
 ## 5. Operacao Atual do Projeto
@@ -186,6 +195,9 @@ Ordem de leitura recomendada:
   - `./init-db.sh`
 - Suite backend local:
   - `docker compose --profile test run --rm backend-test`
+- Validacao operacional das notificacoes:
+  - subir ou reiniciar `backend-dev` e verificar `docker compose logs --tail=80 backend-dev` para confirmar `notification scheduler initialized`
+  - para simular o fluxo sem SMTP real, usar `EMAIL_TRANSPORT=json` e executar os jobs dentro do container com dados temporarios de vendor/document, observando o payload serializado no log
 
 ### Operacao assistida por IA
 
@@ -204,6 +216,7 @@ Ordem de leitura recomendada:
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
 - A camada de vendors e documentos agora existe no frontend para `admin`, mas ainda sem refinamentos de UX, filtros ou experiencia mobile mais profunda.
 - A camada de documentos segue dependente de storage local no backend e sem versionamento.
+- O baseline de notificacoes cobre apenas lembretes e resumos enviados pelo backend; nao existe UI administrativa nem fila de entrega mais robusta.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
 - A automacao ponta a ponta depende de o CLI do Codex estar disponivel localmente e autenticado para execucao nao interativa.
@@ -240,7 +253,8 @@ Ordem de leitura recomendada:
   - a jornada de acesso e sessao do usuario foi fechada com bootstrap via `/api/auth/me`;
   - a camada autenticada de vendors e documentos/compliance ja existe de ponta a ponta para `admin`;
   - o baseline visivel prometido pelo MVP agora esta entregue;
-  - o principal gap restante passa a ser robustez operacional, notificacoes e testes mais amplos.
+  - o backend agora cobre notificacoes basicas e scheduler localmente validavel;
+  - o principal gap restante passa a ser endurecimento de testes, validacoes e pipeline.
 
 ### Estrutura de refinamento do tema ativo
 
@@ -251,13 +265,12 @@ Ordem de leitura recomendada:
 - **Epico 3:** Preparacao de entrega
   - Evoluir CI/CD e fluxo de publicacao alem do baseline atual de PR.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Iniciar a camada de notificacoes e agendamento em cima do baseline atual de compliance.
+  - Consolidar testes automatizados e endurecer validacoes nos fluxos ja entregues.
 
 ### Backlog estrategico ordenado
 
-1. Adicionar notificacoes e agendamento.
-2. Consolidar testes frontend/integracao e endurecer validacoes.
-3. Preparar deploy e CI/CD mais ampla.
+1. Consolidar testes frontend/integracao e endurecer validacoes.
+2. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 
@@ -268,5 +281,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Implementar notificacoes por e-mail e agendamento.**
-- Essa passa a ser a melhor proxima entrega porque o fluxo minimo de vendors e documentos/compliance ja existe de ponta a ponta para `admin`, enquanto o proximo ganho funcional real esta nas automacoes de expiracao e resumo operacional.
+- **Consolidar testes automatizados e endurecer validacoes.**
+- Essa passa a ser a melhor proxima entrega porque o baseline funcional ja cobre auth, vendors, documentos e notificacoes, enquanto o principal risco restante esta na robustez de testes e validacoes.

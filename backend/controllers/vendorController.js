@@ -1,5 +1,6 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('../config/db');
+const { syncVendorComplianceStatus, syncVendorComplianceStatuses } = require('../services/complianceService');
 
 const VALID_STATUSES = ['Compliant', 'Non-Compliant'];
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -51,6 +52,12 @@ const handleServerError = (res, error, message) => {
 
 exports.getAllVendors = async (req, res) => {
   try {
+    const vendorIds = await db('vendors').pluck('id');
+
+    if (vendorIds.length > 0) {
+      await syncVendorComplianceStatuses(vendorIds);
+    }
+
     const vendors = await db('vendors').select('*');
     return res.json(vendors);
   } catch (error) {
@@ -60,6 +67,7 @@ exports.getAllVendors = async (req, res) => {
 
 exports.getVendorById = async (req, res) => {
   try {
+    await syncVendorComplianceStatus(req.params.id);
     const vendor = await db('vendors').where({ id: req.params.id }).first();
 
     if (!vendor) {
@@ -145,5 +153,26 @@ exports.deleteVendor = async (req, res) => {
     return res.status(204).send();
   } catch (error) {
     return handleServerError(res, error, 'Error deleting vendor:');
+  }
+};
+
+exports.checkVendorCompliance = async (req, res) => {
+  try {
+    const vendor = await db('vendors').where({ id: req.params.id }).first();
+
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    const status = await syncVendorComplianceStatus(req.params.id);
+    const updatedVendor = await db('vendors').where({ id: req.params.id }).first();
+
+    return res.json({
+      message: 'Compliance status updated',
+      status,
+      vendor: updatedVendor,
+    });
+  } catch (error) {
+    return handleServerError(res, error, 'Error checking vendor compliance:');
   }
 };

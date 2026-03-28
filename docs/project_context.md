@@ -78,10 +78,22 @@ Ordem de leitura recomendada:
   - `POST /api/vendors`
   - `PUT /api/vendors/:id`
   - `DELETE /api/vendors/:id`
+- Endpoints minimos de documentos existentes:
+  - `POST /api/documents/upload/:vendorId`
+  - `GET /api/vendors/:vendorId/documents`
+  - `POST /api/vendors/:vendorId/documents`
+  - `GET /api/documents/:documentId/download`
+  - `POST /api/vendors/:id/check-compliance`
 - CRUD de vendors no backend concluido com:
   - validacoes basicas de `name`, `contact_email` e `status`
   - tratamento de erro para 400, 401, 403 e 404
   - acesso restrito a usuarios com papel `admin`
+- Fluxo minimo de documentos no backend concluido com:
+  - upload multipart com armazenamento local em `backend/uploads/documents`
+  - persistencia do metadata no banco em `documents`
+  - download por `documentId`
+  - atualizacao basica do status de compliance do vendor com base em documentos obrigatorios nao expirados
+  - endpoint manual para recalcular compliance sob demanda por vendor
 - Frontend com:
   - home page basica
   - login page com React Hook Form + Yup
@@ -106,13 +118,14 @@ Ordem de leitura recomendada:
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
 - O frontend agora possui comando oficial de testes para auth/sessao, mas a cobertura ainda e localizada nesse fluxo.
 - A camada de vendors segue ausente no frontend, apesar de o backend ja expor o CRUD minimo completo.
+- A UI de documentos e compliance segue ausente no frontend, apesar de o backend agora expor a API minima correspondente.
 
 ### Ainda nao implementado
 
-- API de documentos com upload, download, versionamento e expiracao.
-- Calculo real de compliance baseado em documentos.
 - UI de gestao de vendors.
 - UI de documentos e compliance.
+- Versionamento sofisticado de documentos.
+- Regras de compliance mais avancadas do que o baseline atual por tipos obrigatorios e validade.
 - Notificacoes por e-mail e agendamento.
 - Pipeline completa para frontend, integracao e E2E.
 - Deploy e CI/CD alem da validacao backend de PR.
@@ -147,13 +160,19 @@ Ordem de leitura recomendada:
   - `file_url`
   - `uploaded_at`
   - `expires_at`
-- A logica de documentos e compliance ainda nao esta implementada no nivel funcional do produto, apesar do schema existir.
+- O backend agora suporta upload local, listagem por vendor e download por `documentId`.
+- O backend tambem expoe um endpoint de acionamento manual da compliance por vendor em `POST /api/vendors/:id/check-compliance`.
+- O upload atual usa armazenamento local em `backend/uploads/documents`, pensado para desenvolvimento local.
+- A regra minima de compliance atual considera o vendor `Compliant` apenas quando existem documentos nao expirados para todos os tipos obrigatorios.
+- Os tipos obrigatorios atuais podem ser configurados por `REQUIRED_DOCUMENT_TYPES`; sem override, o baseline do projeto e `insurance,license`.
+- Versionamento de documentos, storage externo e regras avancadas de compliance continuam fora do baseline atual.
 
 ### Dados e ambiente
 
 - Nao existe seed de desenvolvimento no repositorio.
 - Seed automatica existe apenas para o ambiente de teste.
 - O projeto usa `backend/.env` para variaveis do backend local.
+- `REQUIRED_DOCUMENT_TYPES` e opcional no backend e permite sobrescrever os tipos obrigatorios usados na compliance basica.
 - Os scripts do framework usam `.env` na raiz para `GEMINI_KEY` e futuras configuracoes locais do pipeline.
 
 ## 5. Operacao Atual do Projeto
@@ -183,7 +202,7 @@ Ordem de leitura recomendada:
 - A jornada inicial de autenticacao frontend foi fechada, mas a cobertura automatizada de frontend ainda e pequena e concentrada em auth/sessao.
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
 - A camada de vendors agora esta fechada no backend, mas segue ausente no frontend.
-- A camada de documentos ainda existe apenas no schema, nao no fluxo funcional.
+- A camada de documentos agora existe no backend, mas segue sem UI dedicada no frontend e sem storage externo.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
 - A automacao ponta a ponta depende de o CLI do Codex estar disponivel localmente e autenticado para execucao nao interativa.
@@ -215,26 +234,28 @@ Ordem de leitura recomendada:
 ### Tema ativo do roadmap
 
 - **Tema ativo:** Gestao operacional de vendors
-- **Objetivo do tema:** usar a autenticacao frontend ja fechada como base para entregar a primeira experiencia operacional real de vendors.
+- **Objetivo do tema:** completar a camada operacional visivel do produto a partir do backend de vendors e do novo baseline de documentos/compliance.
 - **Motivo da prioridade atual:**
   - a jornada de acesso e sessao do usuario foi fechada com bootstrap via `/api/auth/me`;
   - o backend ja possui CRUD minimo de vendors protegido por JWT e papel `admin`;
-  - o maior gap funcional visivel agora esta na camada operacional de vendors no frontend.
+  - a API minima de documentos/compliance ja existe no backend;
+  - o maior gap funcional visivel agora esta na UI operacional de vendors e documentos no frontend.
 
 ### Estrutura de refinamento do tema ativo
 
 - **Epico 1:** CRUD minimo de vendors no backend
   - Concluido com operacoes de criacao, leitura, atualizacao e remocao protegidas para `admin`, com validacoes basicas e testes.
 - **Epico 2:** UI autenticada minima para vendors
-  - Entregar lista e navegacao basica de vendors apoiadas no fluxo de sessao ja estabilizado.
+  - Concluir lista e navegacao basica de vendors apoiadas no fluxo de sessao ja estabilizado.
+- **Epico 3:** UI minima de documentos e compliance
+  - Expor no frontend o upload, a listagem de documentos e o status derivado de compliance.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Entregar UI basica de vendors integrada a API.
+  - Entregar UI minima de vendors integrada a API e preparada para exibir documentos/compliance.
 
 ### Backlog estrategico ordenado
 
 1. Entregar UI basica de vendors integrada a API.
-2. Implementar API de documentos e atualizacao de compliance.
-3. Entregar UI de documentos e status de compliance.
+2. Entregar UI de documentos e status de compliance.
 4. Adicionar notificacoes e agendamento.
 5. Consolidar testes frontend/integracao e endurecer validacoes.
 6. Preparar deploy e CI/CD mais ampla.
@@ -248,5 +269,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Entregar UI basica de vendors integrada a API.**
-- Essa passa a ser a melhor proxima entrega porque o CRUD minimo de vendors ja esta fechado no backend e o principal gargalo visivel agora e a ausencia da experiencia operacional correspondente no frontend.
+- **Entregar UI basica de vendors integrada a API e preparada para mostrar documentos/compliance.**
+- Essa passa a ser a melhor proxima entrega porque o backend ja cobre sessao, CRUD minimo de vendors e o baseline da API de documentos/compliance, enquanto o principal gargalo visivel continua no frontend operacional.

@@ -10,7 +10,7 @@
   - Expandir a suite backend para cobrir o fluxo protegido de vendors alem dos endpoints de leitura ja existentes.
   - Fora de escopo: pagina de vendors no frontend, documentos, paginacao avancada, busca complexa ou compliance automatica.
 
-- [ ] **INC-003** Entregar UI basica de gestao de vendors integrada a API
+- [x] **INC-003** Entregar UI basica de gestao de vendors integrada a API
   - Criar fluxo minimo no frontend para listar, criar, editar e remover vendors usando os endpoints reais do backend.
   - Integrar a navegacao autenticada para expor essa area apos login, mantendo o dashboard como entrada minima funcional.
   - Fora de escopo: upload de documentos, compliance detalhada, filtros avancados, redesign amplo ou notificacoes.

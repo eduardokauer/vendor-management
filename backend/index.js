@@ -37,7 +37,9 @@ app.get('/api/hello', (req, res) => {
 });
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/vendors/:vendorId/documents', require('./routes/vendorDocuments'));
 app.use('/api/vendors', require('./routes/vendors'));
+app.use('/api/documents', require('./routes/documents'));
 
 // Server instance
 let server;

@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../contexts/AuthContext';
 import DashboardPage from '../pages/DashboardPage';
@@ -50,6 +50,10 @@ beforeEach(() => {
   localStorage.clear();
   mockedGetCurrentUser.mockReset();
   mockedLoginWithCredentials.mockReset();
+});
+
+afterEach(() => {
+  cleanup();
 });
 
 describe('Login and session flow', () => {

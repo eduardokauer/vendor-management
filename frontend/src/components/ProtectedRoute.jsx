@@ -2,9 +2,9 @@ import PropTypes from 'prop-types';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, allowedRoles = [] }) {
   const location = useLocation();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,9 +18,20 @@ export default function ProtectedRoute({ children }) {
     return <Navigate replace state={{ from: location }} to="/login" />;
   }
 
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    return (
+      <Navigate
+        replace
+        state={{ authorizationError: 'You do not have access to that page.' }}
+        to="/dashboard"
+      />
+    );
+  }
+
   return children;
 }
 
 ProtectedRoute.propTypes = {
+  allowedRoles: PropTypes.arrayOf(PropTypes.string),
   children: PropTypes.node.isRequired,
 };

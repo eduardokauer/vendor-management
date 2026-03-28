@@ -82,6 +82,47 @@ export const deleteVendor = async (vendorId) => {
   await api.delete(`/api/vendors/${vendorId}`);
 };
 
+export const getVendorDocuments = async (vendorId) => {
+  const response = await api.get(`/api/vendors/${vendorId}/documents`);
+  return response.data;
+};
+
+export const uploadVendorDocument = async (vendorId, payload) => {
+  const formData = new FormData();
+
+  formData.append('type', payload.type);
+
+  if (payload.expires_at) {
+    formData.append('expires_at', payload.expires_at);
+  }
+
+  formData.append('file', payload.file);
+
+  const response = await api.post(`/api/documents/upload/${vendorId}`, formData);
+  return response.data;
+};
+
+export const checkVendorCompliance = async (vendorId) => {
+  const response = await api.post(`/api/vendors/${vendorId}/check-compliance`);
+  return response.data;
+};
+
+const getFilenameFromDisposition = (contentDisposition = '') => {
+  const match = /filename=\"?([^\";]+)\"?/.exec(contentDisposition);
+  return match?.[1] ?? 'document';
+};
+
+export const downloadDocumentFile = async (documentId) => {
+  const response = await api.get(`/api/documents/${documentId}/download`, {
+    responseType: 'blob',
+  });
+
+  return {
+    blob: response.data,
+    filename: getFilenameFromDisposition(response.headers['content-disposition']),
+  };
+};
+
 export const getApiErrorMessage = (error, fallbackMessage) => {
   return error.response?.data?.message || fallbackMessage;
 };

@@ -99,6 +99,8 @@ Ordem de leitura recomendada:
   - login page com React Hook Form + Yup
   - dashboard protegido
   - `AuthContext` com persistencia de token no `localStorage`, bootstrap de sessao via `GET /api/auth/me`, protecao de rota e logout limpando a sessao
+  - fluxo admin de vendors com CRUD basico no frontend
+  - pagina autenticada de documentos por vendor com upload minimo, listagem, download e refresh manual de compliance
 - Testes backend existentes:
   - conectividade com banco
   - fluxo basico de auth
@@ -107,23 +109,22 @@ Ordem de leitura recomendada:
   - login com persistencia de token
   - restauracao de sessao em rota protegida
   - limpeza de token invalido com redirecionamento para login
+  - gestao de vendors no frontend
+  - fluxo de documentos/compliance por vendor no frontend
 - Seed de teste existente em `backend/db/seeds/test/01-users.js`.
 - Ambiente local validado com Docker Compose, migrations e suite backend verde.
 
 ### Parcialmente implementado ou incompleto
 
 - Fluxo de autenticacao frontend:
-  - estado: Fechado para login, persistencia do token, bootstrap via `/api/auth/me`, protecao de rota e logout;
-  - o dashboard autenticado ainda e minimo e segue como placeholder para as proximas features apos login.
+  - estado: Fechado para login, persistencia do token, bootstrap via `/api/auth/me`, protecao de rota, logout e dashboard autenticado com resumo operacional basico;
+  - o dashboard ainda nao oferece analiticos amplos, filtros ou automacoes operacionais.
 - Home page faz chamada ao backend, mas o estado carregado nao e efetivamente exposto na UI.
-- O frontend agora possui comando oficial de testes para auth/sessao, mas a cobertura ainda e localizada nesse fluxo.
-- A camada de vendors segue ausente no frontend, apesar de o backend ja expor o CRUD minimo completo.
-- A UI de documentos e compliance segue ausente no frontend, apesar de o backend agora expor a API minima correspondente.
+- O frontend agora possui comando oficial de testes, mas a cobertura ainda e enxuta mesmo apos incluir auth, vendors e documentos.
+- O frontend ja cobre a operacao minima de vendors e documentos para `admin`, mas ainda sem refinamentos de UX como filtros, historico ou dashboard analitico.
 
 ### Ainda nao implementado
 
-- UI de gestao de vendors.
-- UI de documentos e compliance.
 - Versionamento sofisticado de documentos.
 - Regras de compliance mais avancadas do que o baseline atual por tipos obrigatorios e validade.
 - Notificacoes por e-mail e agendamento.
@@ -199,10 +200,10 @@ Ordem de leitura recomendada:
 
 ## 6. Riscos e Limitacoes Conhecidas
 
-- A jornada inicial de autenticacao frontend foi fechada, mas a cobertura automatizada de frontend ainda e pequena e concentrada em auth/sessao.
+- A jornada inicial de autenticacao frontend foi fechada e a cobertura automatizada agora inclui auth, vendors e documentos, mas ainda e pequena para o escopo total do produto.
 - Nao existe seed de desenvolvimento, entao smoke tests manuais normalmente exigem criar usuarios ou dados via API.
-- A camada de vendors agora esta fechada no backend, mas segue ausente no frontend.
-- A camada de documentos agora existe no backend, mas segue sem UI dedicada no frontend e sem storage externo.
+- A camada de vendors e documentos agora existe no frontend para `admin`, mas ainda sem refinamentos de UX, filtros ou experiencia mobile mais profunda.
+- A camada de documentos segue dependente de storage local no backend e sem versionamento.
 - A Action de PR backend sera a primeira camada de CI deste repositorio; ainda nao existe pipeline equivalente para frontend.
 - Os scripts do framework agora sao shell scripts para uso direto em terminais bash, com dependencia de `gh`, `curl`, `python3`, Docker e CLI do Codex.
 - A automacao ponta a ponta depende de o CLI do Codex estar disponivel localmente e autenticado para execucao nao interativa.
@@ -233,32 +234,30 @@ Ordem de leitura recomendada:
 
 ### Tema ativo do roadmap
 
-- **Tema ativo:** Gestao operacional de vendors
-- **Objetivo do tema:** completar a camada operacional visivel do produto a partir do backend de vendors e do novo baseline de documentos/compliance.
+- **Tema ativo:** Operacao assistida e robustez
+- **Objetivo do tema:** endurecer o MVP ja funcional com notificacoes, cobertura automatizada mais ampla e automacoes operacionais.
 - **Motivo da prioridade atual:**
   - a jornada de acesso e sessao do usuario foi fechada com bootstrap via `/api/auth/me`;
-  - o backend ja possui CRUD minimo de vendors protegido por JWT e papel `admin`;
-  - a API minima de documentos/compliance ja existe no backend;
-  - o maior gap funcional visivel agora esta na UI operacional de vendors e documentos no frontend.
+  - a camada autenticada de vendors e documentos/compliance ja existe de ponta a ponta para `admin`;
+  - o baseline visivel prometido pelo MVP agora esta entregue;
+  - o principal gap restante passa a ser robustez operacional, notificacoes e testes mais amplos.
 
 ### Estrutura de refinamento do tema ativo
 
-- **Epico 1:** CRUD minimo de vendors no backend
-  - Concluido com operacoes de criacao, leitura, atualizacao e remocao protegidas para `admin`, com validacoes basicas e testes.
-- **Epico 2:** UI autenticada minima para vendors
-  - Concluir lista e navegacao basica de vendors apoiadas no fluxo de sessao ja estabilizado.
-- **Epico 3:** UI minima de documentos e compliance
-  - Expor no frontend o upload, a listagem de documentos e o status derivado de compliance.
+- **Epico 1:** Notificacoes e agendamento
+  - Adicionar lembretes e rotinas operacionais a partir das datas de expiracao ja suportadas pelo backend.
+- **Epico 2:** Robustez de testes e validacoes
+  - Consolidar cobertura frontend/integracao e endurecer os principais cenarios de erro.
+- **Epico 3:** Preparacao de entrega
+  - Evoluir CI/CD e fluxo de publicacao alem do baseline atual de PR.
 - **Primeira fatia pronta para execucao recomendada:**
-  - Entregar UI minima de vendors integrada a API e preparada para exibir documentos/compliance.
+  - Iniciar a camada de notificacoes e agendamento em cima do baseline atual de compliance.
 
 ### Backlog estrategico ordenado
 
-1. Entregar UI basica de vendors integrada a API.
-2. Entregar UI de documentos e status de compliance.
-4. Adicionar notificacoes e agendamento.
-5. Consolidar testes frontend/integracao e endurecer validacoes.
-6. Preparar deploy e CI/CD mais ampla.
+1. Adicionar notificacoes e agendamento.
+2. Consolidar testes frontend/integracao e endurecer validacoes.
+3. Preparar deploy e CI/CD mais ampla.
 
 ### Regra de governanca do roadmap
 
@@ -269,5 +268,5 @@ Ordem de leitura recomendada:
 
 ### Proximo passo recomendado
 
-- **Entregar UI basica de vendors integrada a API e preparada para mostrar documentos/compliance.**
-- Essa passa a ser a melhor proxima entrega porque o backend ja cobre sessao, CRUD minimo de vendors e o baseline da API de documentos/compliance, enquanto o principal gargalo visivel continua no frontend operacional.
+- **Implementar notificacoes por e-mail e agendamento.**
+- Essa passa a ser a melhor proxima entrega porque o fluxo minimo de vendors e documentos/compliance ja existe de ponta a ponta para `admin`, enquanto o proximo ganho funcional real esta nas automacoes de expiracao e resumo operacional.

@@ -10,6 +10,8 @@ export default function Vendors() {
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState('');
   const [deletingVendorId, setDeletingVendorId] = useState(null);
+  const compliantVendorsCount = vendors.filter((vendor) => vendor.status === 'Compliant').length;
+  const nonCompliantVendorsCount = vendors.length - compliantVendorsCount;
 
   useEffect(() => {
     let isMounted = true;
@@ -98,6 +100,34 @@ export default function Vendors() {
           {pageError}
         </div>
       )}
+
+      <section className="mb-6 grid gap-4 md:grid-cols-3">
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+            Registry
+          </p>
+          <p className="mt-3 text-3xl font-semibold text-slate-950">{vendors.length}</p>
+          <p className="mt-2 text-sm text-slate-600">Tracked vendors in the authenticated flow.</p>
+        </article>
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
+            Compliant
+          </p>
+          <p className="mt-3 text-3xl font-semibold text-slate-950">{compliantVendorsCount}</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Vendors whose required documents are currently valid.
+          </p>
+        </article>
+        <article className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">
+            Needs attention
+          </p>
+          <p className="mt-3 text-3xl font-semibold text-slate-950">{nonCompliantVendorsCount}</p>
+          <p className="mt-2 text-sm text-slate-600">
+            Open a vendor document workspace to upload evidence or refresh compliance.
+          </p>
+        </article>
+      </section>
 
       {isLoading ? (
         <div className="rounded-3xl bg-white px-6 py-12 text-center shadow-sm ring-1 ring-slate-200">

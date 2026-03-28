@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import AppShell from '../components/AppShell';
 import { useAuth } from '../contexts/AuthContext';
+import { getApiErrorMessage, getVendors } from '../services/api';
 
 const capabilityCopy = {
   admin: 'Your account can manage the vendor registry and keep supplier records current.',
@@ -10,6 +12,53 @@ const capabilityCopy = {
 export default function Dashboard() {
   const location = useLocation();
   const { user } = useAuth();
+  const [vendors, setVendors] = useState([]);
+  const [vendorsError, setVendorsError] = useState('');
+  const [isLoadingVendors, setIsLoadingVendors] = useState(user?.role === 'admin');
+  const compliantVendorsCount = vendors.filter((vendor) => vendor.status === 'Compliant').length;
+  const nonCompliantVendorsCount = vendors.length - compliantVendorsCount;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadVendorSummary = async () => {
+      if (user?.role !== 'admin') {
+        if (isMounted) {
+          setVendors([]);
+          setVendorsError('');
+          setIsLoadingVendors(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setIsLoadingVendors(true);
+      }
+
+      try {
+        const vendorRecords = await getVendors();
+
+        if (isMounted) {
+          setVendors(vendorRecords);
+          setVendorsError('');
+        }
+      } catch (error) {
+        if (isMounted) {
+          setVendorsError(getApiErrorMessage(error, 'Could not load the vendor summary'));
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVendors(false);
+        }
+      }
+    };
+
+    loadVendorSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.role]);
 
   return (
     <AppShell>
@@ -72,6 +121,76 @@ export default function Dashboard() {
               )}
             </article>
           </div>
+
+          {user?.role === 'admin' && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+                    Compliance snapshot
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    The dashboard now surfaces the current vendor compliance mix from the backend.
+                  </p>
+                </div>
+                <Link
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  to="/vendors"
+                >
+                  Review vendors
+                </Link>
+              </div>
+
+              {vendorsError && (
+                <div
+                  className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+                  role="alert"
+                >
+                  {vendorsError}
+                </div>
+              )}
+
+              {isLoadingVendors ? (
+                <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-6 text-sm text-slate-600">
+                  Loading compliance summary...
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <article className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+                      Vendors tracked
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-950">{vendors.length}</p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Supplier records available for document management.
+                    </p>
+                  </article>
+                  <article className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-emerald-700">
+                      Compliant
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-950">
+                      {compliantVendorsCount}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Vendors with the required valid documentation on file.
+                    </p>
+                  </article>
+                  <article className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-700">
+                      Needs attention
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-slate-950">
+                      {nonCompliantVendorsCount}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      Vendors missing required evidence or carrying expired documents.
+                    </p>
+                  </article>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <aside className="rounded-3xl bg-gradient-to-br from-sky-100 via-white to-indigo-100 p-6 shadow-sm ring-1 ring-slate-200">
@@ -80,8 +199,8 @@ export default function Dashboard() {
           </p>
           <h2 className="mt-4 text-2xl font-semibold text-slate-950">Operational entry point</h2>
           <p className="mt-3 text-sm leading-6 text-slate-600">
-            The dashboard now routes admins into the vendor workflow, turning login into a usable
-            application entry point instead of a placeholder.
+            The authenticated workspace now exposes vendor records, document uploads, file
+            downloads and a live compliance snapshot instead of stopping at a placeholder.
           </p>
         </aside>
       </div>

@@ -149,9 +149,15 @@ export default function VendorDocumentsPage() {
 
   const handleUpload = async (event) => {
     event.preventDefault();
-    setIsSubmitting(true);
     setPageError('');
     setPageNotice('');
+
+    if (!documentType.trim() || !selectedFile) {
+      setPageError('Document type and file are required.');
+      return;
+    }
+
+    setIsSubmitting(true);
 
     try {
       const uploadedDocument = await uploadVendorDocument(vendorId, {
@@ -328,7 +334,7 @@ export default function VendorDocumentsPage() {
                 vendor compliance status after every successful upload.
               </p>
 
-              <form className="mt-6 space-y-5" onSubmit={handleUpload}>
+              <form className="mt-6 space-y-5" noValidate onSubmit={handleUpload}>
                 <div>
                   <label
                     className="block text-sm font-medium text-slate-700"

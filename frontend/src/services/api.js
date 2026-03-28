@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 export const AUTH_TOKEN_STORAGE_KEY = 'token';
+export const VENDOR_STATUSES = ['Compliant', 'Non-Compliant'];
 
 const getStorage = () => {
   if (typeof window === 'undefined') {
@@ -55,6 +56,30 @@ export const loginWithCredentials = async (credentials) => {
 export const getCurrentUser = async () => {
   const response = await api.get('/api/auth/me');
   return response.data;
+};
+
+export const getVendors = async () => {
+  const response = await api.get('/api/vendors');
+  return response.data;
+};
+
+export const getVendorById = async (vendorId) => {
+  const response = await api.get(`/api/vendors/${vendorId}`);
+  return response.data;
+};
+
+export const createVendor = async (payload) => {
+  const response = await api.post('/api/vendors', payload);
+  return response.data;
+};
+
+export const updateVendor = async (vendorId, payload) => {
+  const response = await api.put(`/api/vendors/${vendorId}`, payload);
+  return response.data;
+};
+
+export const deleteVendor = async (vendorId) => {
+  await api.delete(`/api/vendors/${vendorId}`);
 };
 
 export const getApiErrorMessage = (error, fallbackMessage) => {

@@ -155,3 +155,24 @@ exports.deleteVendor = async (req, res) => {
     return handleServerError(res, error, 'Error deleting vendor:');
   }
 };
+
+exports.checkVendorCompliance = async (req, res) => {
+  try {
+    const vendor = await db('vendors').where({ id: req.params.id }).first();
+
+    if (!vendor) {
+      return res.status(404).json({ message: 'Vendor not found' });
+    }
+
+    const status = await syncVendorComplianceStatus(req.params.id);
+    const updatedVendor = await db('vendors').where({ id: req.params.id }).first();
+
+    return res.json({
+      message: 'Compliance status updated',
+      status,
+      vendor: updatedVendor,
+    });
+  } catch (error) {
+    return handleServerError(res, error, 'Error checking vendor compliance:');
+  }
+};

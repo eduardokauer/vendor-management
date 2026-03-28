@@ -108,7 +108,7 @@ describe('Documents API', () => {
       const vendor = await createVendor();
 
       const insuranceRes = await request(app)
-        .post(`/api/vendors/${vendor.id}/documents`)
+        .post(`/api/documents/upload/${vendor.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', 'insurance')
         .field('expires_at', '2099-12-31')
@@ -122,7 +122,7 @@ describe('Documents API', () => {
       });
 
       const licenseRes = await request(app)
-        .post(`/api/vendors/${vendor.id}/documents`)
+        .post(`/api/documents/upload/${vendor.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', 'license')
         .field('expires_at', '2099-12-31')
@@ -161,14 +161,14 @@ describe('Documents API', () => {
       const vendor = await createVendor();
 
       await request(app)
-        .post(`/api/vendors/${vendor.id}/documents`)
+        .post(`/api/documents/upload/${vendor.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', 'insurance')
         .field('expires_at', '2099-12-31')
         .attach('file', Buffer.from('insurance-file'), 'insurance.pdf');
 
       const expiredLicenseRes = await request(app)
-        .post(`/api/vendors/${vendor.id}/documents`)
+        .post(`/api/documents/upload/${vendor.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', 'license')
         .field('expires_at', '2000-01-01')
@@ -189,7 +189,7 @@ describe('Documents API', () => {
       const vendor = await createVendor();
 
       const res = await request(app)
-        .post(`/api/vendors/${vendor.id}/documents`)
+        .post(`/api/documents/upload/${vendor.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', '');
 
@@ -205,7 +205,7 @@ describe('Documents API', () => {
 
     test('returns 404 when uploading a document for a missing vendor', async () => {
       const res = await request(app)
-        .post('/api/vendors/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/documents')
+        .post('/api/documents/upload/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')
         .set('Authorization', `Bearer ${adminToken}`)
         .field('type', 'insurance')
         .attach('file', Buffer.from('insurance-file'), 'insurance.pdf');
@@ -221,6 +221,41 @@ describe('Documents API', () => {
 
       expect(res.status).toBe(404);
       expect(res.body).toEqual({ message: 'Document not found' });
+    });
+
+    test('allows manual compliance refresh for admin users', async () => {
+      const vendor = await createVendor();
+
+      await db('documents').insert([
+        {
+          id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+          vendor_id: vendor.id,
+          type: 'insurance',
+          file_url: 'uploads/documents/manual-insurance.txt',
+          expires_at: '2099-12-31',
+        },
+        {
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          vendor_id: vendor.id,
+          type: 'license',
+          file_url: 'uploads/documents/manual-license.txt',
+          expires_at: '2099-12-31',
+        },
+      ]);
+
+      const res = await request(app)
+        .post(`/api/vendors/${vendor.id}/check-compliance`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toMatchObject({
+        message: 'Compliance status updated',
+        status: 'Compliant',
+        vendor: {
+          id: vendor.id,
+          status: 'Compliant',
+        },
+      });
     });
   });
 });

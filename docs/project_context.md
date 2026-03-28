@@ -79,9 +79,11 @@ Ordem de leitura recomendada:
   - `PUT /api/vendors/:id`
   - `DELETE /api/vendors/:id`
 - Endpoints minimos de documentos existentes:
+  - `POST /api/documents/upload/:vendorId`
   - `GET /api/vendors/:vendorId/documents`
   - `POST /api/vendors/:vendorId/documents`
   - `GET /api/documents/:documentId/download`
+  - `POST /api/vendors/:id/check-compliance`
 - CRUD de vendors no backend concluido com:
   - validacoes basicas de `name`, `contact_email` e `status`
   - tratamento de erro para 400, 401, 403 e 404
@@ -91,6 +93,7 @@ Ordem de leitura recomendada:
   - persistencia do metadata no banco em `documents`
   - download por `documentId`
   - atualizacao basica do status de compliance do vendor com base em documentos obrigatorios nao expirados
+  - endpoint manual para recalcular compliance sob demanda por vendor
 - Frontend com:
   - home page basica
   - login page com React Hook Form + Yup
@@ -158,6 +161,7 @@ Ordem de leitura recomendada:
   - `uploaded_at`
   - `expires_at`
 - O backend agora suporta upload local, listagem por vendor e download por `documentId`.
+- O backend tambem expoe um endpoint de acionamento manual da compliance por vendor em `POST /api/vendors/:id/check-compliance`.
 - O upload atual usa armazenamento local em `backend/uploads/documents`, pensado para desenvolvimento local.
 - A regra minima de compliance atual considera o vendor `Compliant` apenas quando existem documentos nao expirados para todos os tipos obrigatorios.
 - Os tipos obrigatorios atuais podem ser configurados por `REQUIRED_DOCUMENT_TYPES`; sem override, o baseline do projeto e `insurance,license`.

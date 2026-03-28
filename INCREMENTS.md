@@ -25,7 +25,7 @@
   - Expor o status do vendor de forma clara na experiencia autenticada e no fluxo de gestao de vendors.
   - Fora de escopo: drag and drop avancado, historico de versoes complexo, notificacoes e dashboard analitico amplo.
 
-- [ ] **INC-006** Implementar notificacoes por e-mail e agendamento
+- [x] **INC-006** Implementar notificacoes por e-mail e agendamento
   - Adicionar backend para lembretes de expiracao e resumo periodico, com configuracao por variaveis de ambiente e scheduler localmente testavel.
   - Documentar como simular datas de expiracao e validar o fluxo de envio sem depender de credenciais reais de producao.
   - Fora de escopo: provedores externos de producao, telas administrativas de notificacoes ou automacao de deploy.

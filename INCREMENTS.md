@@ -15,7 +15,7 @@
   - Integrar a navegacao autenticada para expor essa area apos login, mantendo o dashboard como entrada minima funcional.
   - Fora de escopo: upload de documentos, compliance detalhada, filtros avancados, redesign amplo ou notificacoes.
 
-- [ ] **INC-004** Implementar API de documentos com upload local e compliance basica
+- [x] **INC-004** Implementar API de documentos com upload local e compliance basica
   - Criar endpoints backend para upload e download de documentos com armazenamento local para desenvolvimento e persistencia do metadata no banco.
   - Atualizar a logica backend para refletir status de compliance do vendor com base na presenca e validade dos documentos suportados pelo MVP.
   - Fora de escopo: integracao com storage externo, versionamento sofisticado, UI completa de documentos ou notificacoes por e-mail.

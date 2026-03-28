@@ -30,7 +30,7 @@
   - Documentar como simular datas de expiracao e validar o fluxo de envio sem depender de credenciais reais de producao.
   - Fora de escopo: provedores externos de producao, telas administrativas de notificacoes ou automacao de deploy.
 
-- [ ] **INC-007** Consolidar testes automatizados e endurecer validacoes
+- [x] **INC-007** Consolidar testes automatizados e endurecer validacoes
   - Estruturar o runner de testes do frontend e ampliar a cobertura dos fluxos principais ja implementados no produto.
   - Endurecer validacoes e cenarios de erro mais criticos no backend, incluindo auth, vendors e documentos.
   - Fora de escopo: E2E pesada, redesign de arquitetura, novas features de produto ou automacoes de release.

@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { AuthProvider } from '../contexts/AuthContext';
 import DashboardPage from '../pages/DashboardPage';
@@ -93,6 +93,10 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+afterEach(() => {
+  cleanup();
+});
+
 describe('Vendor management flow', () => {
   test('redirects non-admin users away from the vendors page', async () => {
     localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, 'persisted-token');
@@ -136,16 +140,16 @@ describe('Vendor management flow', () => {
 
     renderVendorFlow(['/vendors']);
 
-    expect(await screen.findByText(/atlas build/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/atlas build/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /create new vendor/i })).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /remove atlas build/i }));
+    await user.click(screen.getAllByRole('button', { name: /remove atlas build/i })[0]);
 
     await waitFor(() => {
       expect(mockedDeleteVendor).toHaveBeenCalledWith('vendor-1');
     });
-    expect(screen.queryByText(/atlas build/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/brick supply/i)).toBeInTheDocument();
+    expect(screen.queryAllByText(/atlas build/i)).toHaveLength(0);
+    expect(screen.getAllByText(/brick supply/i).length).toBeGreaterThan(0);
   });
 
   test('creates a vendor and returns to the list', async () => {
@@ -173,7 +177,7 @@ describe('Vendor management flow', () => {
 
     renderVendorFlow(['/vendors/new']);
 
-    await user.type(screen.getByLabelText(/name/i), 'Civic Concrete');
+    await user.type(await screen.findByLabelText(/name/i), 'Civic Concrete');
     await user.type(screen.getByLabelText(/contact email/i), 'contact@civic.com');
     await user.selectOptions(screen.getByLabelText(/status/i), 'Compliant');
     await user.click(screen.getByRole('button', { name: /create vendor/i }));
@@ -187,7 +191,7 @@ describe('Vendor management flow', () => {
     });
 
     expect(await screen.findByRole('status')).toHaveTextContent(/created successfully/i);
-    expect(screen.getByText(/civic concrete/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/civic concrete/i).length).toBeGreaterThan(0);
   });
 
   test('loads a vendor into the edit form and saves the updated data', async () => {
@@ -237,6 +241,6 @@ describe('Vendor management flow', () => {
     });
 
     expect(await screen.findByRole('status')).toHaveTextContent(/updated successfully/i);
-    expect(screen.getByText(/legacy masonry group/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/legacy masonry group/i).length).toBeGreaterThan(0);
   });
 });

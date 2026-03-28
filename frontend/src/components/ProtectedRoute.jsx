@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function ProtectedRoute({ children, allowedRoles }) {
+export default function ProtectedRoute({ children, allowedRoles = [] }) {
   const location = useLocation();
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -34,8 +34,4 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 ProtectedRoute.propTypes = {
   allowedRoles: PropTypes.arrayOf(PropTypes.string),
   children: PropTypes.node.isRequired,
-};
-
-ProtectedRoute.defaultProps = {
-  allowedRoles: [],
 };

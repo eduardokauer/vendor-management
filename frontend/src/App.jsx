@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import HomePage from './HomePage';
 import DashboardPage from './pages/Dashboard';
 import LoginPage from './pages/LoginPage';
+import VendorDocumentsPage from './pages/VendorDocumentsPage';
 import VendorFormPage from './pages/VendorFormPage';
 import VendorsPage from './pages/Vendors';
 
@@ -42,6 +43,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <VendorFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/vendors/:vendorId/documents"
+          element={
+            <ProtectedRoute allowedRoles={['admin']}>
+              <VendorDocumentsPage />
             </ProtectedRoute>
           }
         />

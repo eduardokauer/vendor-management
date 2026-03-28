@@ -142,6 +142,7 @@ describe('Vendor management flow', () => {
 
     expect((await screen.findAllByText(/atlas build/i)).length).toBeGreaterThan(0);
     expect(screen.getByRole('link', { name: /create new vendor/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /documents/i }).length).toBeGreaterThan(0);
 
     await user.click(screen.getAllByRole('button', { name: /remove atlas build/i })[0]);
 

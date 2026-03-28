@@ -1,14 +1,16 @@
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
-
-const statusClassNames = {
-  Compliant: 'bg-emerald-100 text-emerald-800',
-  'Non-Compliant': 'bg-amber-100 text-amber-800',
-};
+import ComplianceBadge from './ComplianceBadge';
 
 function VendorActions({ deletingVendorId, onDelete, vendor }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
+      <Link
+        className="rounded-full border border-sky-200 px-3 py-1.5 text-sm font-medium text-sky-700 transition hover:border-sky-300 hover:bg-sky-50"
+        to={`/vendors/${vendor.id}/documents`}
+      >
+        Documents
+      </Link>
       <Link
         className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-100"
         to={`/vendors/${vendor.id}/edit`}
@@ -91,13 +93,7 @@ export default function VendorList({ deletingVendorId, onDelete, vendors }) {
                 <td className="px-6 py-4 text-sm font-medium text-slate-900">{vendor.name}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{vendor.contact_email}</td>
                 <td className="px-6 py-4 text-sm text-slate-700">
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                      statusClassNames[vendor.status] ?? 'bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    {vendor.status}
-                  </span>
+                  <ComplianceBadge size="sm" status={vendor.status} />
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex justify-end">
@@ -127,13 +123,7 @@ export default function VendorList({ deletingVendorId, onDelete, vendors }) {
                 </p>
                 <h2 className="text-lg font-semibold text-slate-900">{vendor.name}</h2>
               </div>
-              <span
-                className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                  statusClassNames[vendor.status] ?? 'bg-slate-200 text-slate-700'
-                }`}
-              >
-                {vendor.status}
-              </span>
+              <ComplianceBadge size="sm" status={vendor.status} />
             </div>
 
             <dl className="mt-4 space-y-3 text-sm text-slate-600">

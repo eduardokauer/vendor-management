@@ -10,6 +10,7 @@ import LoginPage from '../pages/LoginPage';
 import {
   AUTH_TOKEN_STORAGE_KEY,
   getCurrentUser,
+  getVendors,
   loginWithCredentials,
 } from '../services/api';
 
@@ -19,11 +20,13 @@ vi.mock('../services/api', async () => {
   return {
     ...actual,
     getCurrentUser: vi.fn(),
+    getVendors: vi.fn(),
     loginWithCredentials: vi.fn(),
   };
 });
 
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
+const mockedGetVendors = vi.mocked(getVendors);
 const mockedLoginWithCredentials = vi.mocked(loginWithCredentials);
 
 function renderAuthFlow(initialEntries = ['/login']) {
@@ -49,7 +52,9 @@ function renderAuthFlow(initialEntries = ['/login']) {
 beforeEach(() => {
   localStorage.clear();
   mockedGetCurrentUser.mockReset();
+  mockedGetVendors.mockReset();
   mockedLoginWithCredentials.mockReset();
+  mockedGetVendors.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -76,6 +81,20 @@ describe('Login and session flow', () => {
       email: 'admin@example.com',
       role: 'admin',
     });
+    mockedGetVendors.mockResolvedValue([
+      {
+        id: 'vendor-1',
+        name: 'Atlas Build',
+        contact_email: 'atlas@example.com',
+        status: 'Compliant',
+      },
+      {
+        id: 'vendor-2',
+        name: 'Brick Supply',
+        contact_email: 'brick@example.com',
+        status: 'Non-Compliant',
+      },
+    ]);
 
     renderAuthFlow();
 
@@ -84,6 +103,7 @@ describe('Login and session flow', () => {
     await user.click(screen.getByRole('button', { name: /sign in/i }));
 
     expect(await screen.findByText(/welcome, admin@example.com/i)).toBeInTheDocument();
+    expect(await screen.findByText(/vendors tracked/i)).toBeInTheDocument();
     expect(localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)).toBe('jwt-token');
     expect(mockedLoginWithCredentials).toHaveBeenCalledWith({
       email: 'admin@example.com',
@@ -98,11 +118,20 @@ describe('Login and session flow', () => {
       email: 'admin@example.com',
       role: 'admin',
     });
+    mockedGetVendors.mockResolvedValue([
+      {
+        id: 'vendor-1',
+        name: 'Atlas Build',
+        contact_email: 'atlas@example.com',
+        status: 'Compliant',
+      },
+    ]);
 
     renderAuthFlow(['/dashboard']);
 
     expect(await screen.findByText(/welcome, admin@example.com/i)).toBeInTheDocument();
     expect(mockedGetCurrentUser).toHaveBeenCalledTimes(1);
+    expect(mockedGetVendors).toHaveBeenCalledTimes(1);
   });
 
   test('clears an invalid token and redirects back to login', async () => {
@@ -131,6 +160,7 @@ describe('Login and session flow', () => {
       email: 'admin@example.com',
       role: 'admin',
     });
+    mockedGetVendors.mockResolvedValue([]);
 
     renderAuthFlow(['/dashboard']);
 
